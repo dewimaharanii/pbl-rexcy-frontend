@@ -104,7 +104,7 @@ BEGIN
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "flutter_application_1.exe" "\0"
             VALUE "ProductName", "flutter_application_1" "\0"
->>>>>>> 19064cfb96ea37688aad651b35d13aaf786d65ef
+
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

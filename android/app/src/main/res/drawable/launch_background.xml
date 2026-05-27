@@ -18,5 +18,5 @@
             android:gravity="center"
             android:src="@mipmap/launch_image" />
     </item> -->
->>>>>>> 19064cfb96ea37688aad651b35d13aaf786d65ef
+
 </layer-list>

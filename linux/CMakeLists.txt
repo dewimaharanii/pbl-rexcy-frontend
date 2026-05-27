@@ -14,7 +14,7 @@ set(BINARY_NAME "flutter_application_1")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
 set(APPLICATION_ID "com.example.flutter_application_1")
->>>>>>> 19064cfb96ea37688aad651b35d13aaf786d65ef
+
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

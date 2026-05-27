@@ -17,7 +17,7 @@ class _DashboardMitraState extends State<DashboardMitra> {
 
   // HomeContent sekarang PUBLIC jadi bisa dipakai di sini
   final List<Widget> _screens = const [
-    HomeContent(),
+    HomeScreen(),
     CartScreen(),
     OrdersScreen(),
     HistoryScreen(),

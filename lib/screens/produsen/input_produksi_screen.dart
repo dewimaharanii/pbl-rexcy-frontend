@@ -4,7 +4,6 @@ import '../../providers/produksi_provider.dart';
 import '../../models/produksi_model.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/shared_widget.dart';
-import '../../screens/produsen/daftar_produksi_screen.dart';
 
 class InputProduksiScreen extends StatefulWidget {
   const InputProduksiScreen({super.key});
@@ -68,10 +67,10 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
       ),
     );
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const DaftarProduksiScreen()),
-    );
+    // ← Cukup pop balik ke ProdusenShell
+    // DaftarProduksiScreen sudah ada di tab index 1
+    // data baru otomatis muncul karena pakai Provider
+    Navigator.pop(context);
   }
 
   @override
@@ -103,6 +102,8 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+
+            // Tanggal
             fieldLabel('Tanggal produksi'),
             TextFormField(
               controller: _tanggalCtrl,
@@ -112,6 +113,8 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
                   (v == null || v.isEmpty) ? 'Wajib diisi' : null,
             ),
             const SizedBox(height: 14),
+
+            // Kategori dropdown
             fieldLabel('Kategori'),
             Container(
               decoration: BoxDecoration(
@@ -139,6 +142,8 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
               ),
             ),
             const SizedBox(height: 14),
+
+            // Jenis diketik manual
             fieldLabel('Jenis $_kategori'),
             TextFormField(
               controller: _jenisCtrl,
@@ -154,6 +159,8 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
                   (v == null || v.isEmpty) ? 'Jenis wajib diisi' : null,
             ),
             const SizedBox(height: 14),
+
+            // Jumlah & Harga
             Row(children: [
               Expanded(
                 child: Column(
@@ -198,6 +205,8 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
               ),
             ]),
             const SizedBox(height: 14),
+
+            // Lokasi
             fieldLabel('Lokasi tangkap'),
             TextFormField(
               controller: _lokasiCtrl,
@@ -207,6 +216,8 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
                   (v == null || v.isEmpty) ? 'Wajib diisi' : null,
             ),
             const SizedBox(height: 14),
+
+            // Catatan
             fieldLabel('Catatan (opsional)'),
             TextFormField(
               controller: _catatanCtrl,
@@ -215,6 +226,8 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
               decoration: fieldDeco('Tuliskan catatan tambahan...'),
             ),
             const SizedBox(height: 24),
+
+            // Tombol simpan
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -232,35 +245,10 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const DaftarProduksiScreen()),
-                ),
-                icon: const Icon(Icons.list_alt_outlined,
-                    size: 16, color: AppColors.primary),
-                label: const Text('Lihat Daftar Produksi',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.primary),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ),
             const SizedBox(height: 16),
           ],
         ),
       ),
-      bottomNavigationBar: buildProdusenNav(context, 2),
     );
   }
 }

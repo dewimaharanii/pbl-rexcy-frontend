@@ -1,8 +1,8 @@
-<<<<<<< HEAD
+
 # rempang_eco_city
 =======
 # flutter_application_1
->>>>>>> 19064cfb96ea37688aad651b35d13aaf786d65ef
+
 
 A new Flutter project.
 

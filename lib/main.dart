@@ -59,7 +59,7 @@ class ExcyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TransaksiProvider()),
       ],
       child: MaterialApp(
-        title: 'Excy',
+        title: 'Rexcy',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
         home: const SplashScreen(),
@@ -67,7 +67,7 @@ class ExcyApp extends StatelessWidget {
           // General
           '/login':            (context) => const LoginScreen(),
           '/register':         (context) => const RegisterScreen(),
-          '/home':             (context) => const HomeScreen(),
+          '/home':             (context) => HomeScreen(),
           '/profile':          (context) => const ProfileScreen(),
           '/cart':             (context) => const CartScreen(),
           '/orders':           (context) => const OrdersScreen(),

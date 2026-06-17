@@ -16,7 +16,9 @@ class AdminDashboardScreen extends StatefulWidget {
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+  
 }
+
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
@@ -55,6 +57,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+@override
+void initState() {
+  super.initState();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    context.read<AdminProvider>().loadAll();
+  });
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(

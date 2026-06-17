@@ -12,9 +12,7 @@ class AdminDataProdusenScreen extends StatefulWidget {
 class _State extends State<AdminDataProdusenScreen> {
   String _search = '';
 
-  static const _jenisUsahaList = [
-    'Pertanian', 'Perkebunan', 'Peternakan', 'Perikanan', 'Pengolahan',
-  ];
+  static const _jenisUsahaList = ['Nelayan', 'KUB', 'Lainnya'];
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +82,6 @@ class _State extends State<AdminDataProdusenScreen> {
                         DataColumn(label: Text('No. HP')),
                         DataColumn(label: Text('Alamat')),
                         DataColumn(label: Text('Jenis Usaha')),
-                        DataColumn(label: Text('Status')),
                         DataColumn(label: Text('Aksi')),
                       ],
                       rows: list.map((p) {
@@ -97,14 +94,6 @@ class _State extends State<AdminDataProdusenScreen> {
                               child: Text(p.alamat,
                                   overflow: TextOverflow.ellipsis))),
                           DataCell(Text(p.jenisUsaha)),
-                          DataCell(
-                            Switch(
-                              value: p.aktif,
-                              activeColor: AppColors.success,
-                              onChanged: (_) =>
-                                  admin.toggleStatusProdusen(p.id),
-                            ),
-                          ),
                           DataCell(Row(
                             children: [
                               IconButton(
@@ -133,8 +122,7 @@ class _State extends State<AdminDataProdusenScreen> {
     );
   }
 
-  void _confirmDelete(
-      BuildContext ctx, AdminProvider admin, String id) {
+  void _confirmDelete(BuildContext ctx, AdminProvider admin, String id) {
     showDialog(
       context: ctx,
       builder: (_) => AlertDialog(
@@ -145,9 +133,17 @@ class _State extends State<AdminDataProdusenScreen> {
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Batal')),
           ElevatedButton(
-            onPressed: () {
-              admin.hapusProdusen(id);
+            onPressed: () async {
               Navigator.pop(ctx);
+              final result = await admin.hapusProdusen(id);
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                  content: Text(result['message'] ?? ''),
+                  backgroundColor: result['success'] == true
+                      ? AppColors.success
+                      : AppColors.error,
+                ));
+              }
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.error,
@@ -160,13 +156,12 @@ class _State extends State<AdminDataProdusenScreen> {
   }
 
   void _showForm(BuildContext ctx, [ProdusenModel? existing]) {
-    final namaCtrl = TextEditingController(text: existing?.nama);
-    final hpCtrl = TextEditingController(text: existing?.noHp);
-    final alamatCtrl = TextEditingController(text: existing?.alamat);
-    final emailCtrl = TextEditingController(text: existing?.email);
-    final passCtrl = TextEditingController();
+    final namaCtrl     = TextEditingController(text: existing?.nama);
+    final hpCtrl       = TextEditingController(text: existing?.noHp);
+    final alamatCtrl   = TextEditingController(text: existing?.alamat);
+    final usernameCtrl = TextEditingController();
+    final passCtrl     = TextEditingController();
     String jenis = existing?.jenisUsaha ?? _jenisUsahaList.first;
-    bool aktif = existing?.aktif ?? true;
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -194,28 +189,21 @@ class _State extends State<AdminDataProdusenScreen> {
                           labelText: 'Jenis Usaha',
                           border: OutlineInputBorder()),
                       items: _jenisUsahaList
-                          .map((j) => DropdownMenuItem(value: j, child: Text(j)))
+                          .map((j) =>
+                              DropdownMenuItem(value: j, child: Text(j)))
                           .toList(),
                       onChanged: (v) => setS(() => jenis = v!),
                     ),
-                    const SizedBox(height: 12),
-                    _field('Email (Akun)',  emailCtrl,
-                        keyboard: TextInputType.emailAddress),
-                    const SizedBox(height: 12),
-                    if (existing == null)
+                    if (existing == null) ...[
+                      const SizedBox(height: 12),
+                      _field('Username', usernameCtrl),
+                      const SizedBox(height: 12),
                       _field('Password', passCtrl, obscure: true),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Text('Status Aktif'),
-                        const Spacer(),
-                        Switch(
-                          value: aktif,
-                          activeColor: AppColors.success,
-                          onChanged: (v) => setS(() => aktif = v),
-                        ),
-                      ],
-                    ),
+                    ] else ...[
+                      const SizedBox(height: 12),
+                      _field('Password Baru (kosongkan jika tidak diubah)',
+                          passCtrl, obscure: true, required: false),
+                    ],
                   ],
                 ),
               ),
@@ -226,30 +214,40 @@ class _State extends State<AdminDataProdusenScreen> {
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Batal')),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
                 final admin = ctx.read<AdminProvider>();
+                Map<String, dynamic> result;
+
                 if (existing == null) {
-                  admin.tambahProdusen(ProdusenModel(
-                    id: 'P${DateTime.now().millisecondsSinceEpoch}',
-                    nama: namaCtrl.text,
-                    noHp: hpCtrl.text,
-                    alamat: alamatCtrl.text,
+                  result = await admin.tambahProdusen(
+                    nama:       namaCtrl.text,
+                    username:   usernameCtrl.text,
+                    password:   passCtrl.text,
+                    noHp:       hpCtrl.text,
+                    alamat:     alamatCtrl.text,
                     jenisUsaha: jenis,
-                    aktif: aktif,
-                    email: emailCtrl.text,
-                    password: passCtrl.text,
-                  ));
+                  );
                 } else {
-                  existing.nama = namaCtrl.text;
-                  existing.noHp = hpCtrl.text;
-                  existing.alamat = alamatCtrl.text;
-                  existing.jenisUsaha = jenis;
-                  existing.aktif = aktif;
-                  existing.email = emailCtrl.text;
-                  admin.updateProdusen(existing);
+                  result = await admin.updateProdusen(
+                    id:         existing.id,
+                    nama:       namaCtrl.text,
+                    noHp:       hpCtrl.text,
+                    alamat:     alamatCtrl.text,
+                    jenisUsaha: jenis,
+                    password:   passCtrl.text.isNotEmpty ? passCtrl.text : null,
+                  );
                 }
-                Navigator.pop(ctx);
+
+                if (ctx.mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                    content: Text(result['message'] ?? ''),
+                    backgroundColor: result['success'] == true
+                        ? AppColors.success
+                        : AppColors.error,
+                  ));
+                }
               },
               style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -263,16 +261,17 @@ class _State extends State<AdminDataProdusenScreen> {
   }
 
   Widget _field(String label, TextEditingController ctrl,
-      {TextInputType? keyboard, int maxLines = 1, bool obscure = false}) {
+      {TextInputType? keyboard, int maxLines = 1, bool obscure = false, bool required = true}) {
     return TextFormField(
       controller: ctrl,
       keyboardType: keyboard,
       maxLines: maxLines,
       obscureText: obscure,
-      validator: (v) => (v == null || v.isEmpty) ? '$label wajib diisi' : null,
+      validator: required
+          ? (v) => (v == null || v.isEmpty) ? '$label wajib diisi' : null
+          : null,
       decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder()),
+          labelText: label, border: const OutlineInputBorder()),
     );
   }
 }

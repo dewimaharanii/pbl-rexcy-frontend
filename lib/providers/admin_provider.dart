@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import '../services/mitra_api_service.dart';
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 class ProdusenModel {
-  String id, nama, noHp, alamat, jenisUsaha;
-  bool aktif;
-  String? email, password;
+  final String id, nama, noHp, alamat, jenisUsaha;
+
+  // Alias kompatibilitas screen lama
+  String get email => '';
+  bool   get aktif => true;
 
   ProdusenModel({
     required this.id,
@@ -13,49 +16,94 @@ class ProdusenModel {
     required this.noHp,
     required this.alamat,
     required this.jenisUsaha,
-    this.aktif = true,
-    this.email,
-    this.password,
   });
+
+  factory ProdusenModel.fromJson(Map<String, dynamic> j) => ProdusenModel(
+        id:         j['Id_Produsen']   ?? '',
+        nama:       j['Nama_Produsen'] ?? '',
+        noHp:       j['No_HP']         ?? '',
+        alamat:     j['Alamat']        ?? '',
+        jenisUsaha: j['Jenis_Usaha']   ?? '',
+      );
 }
 
 class MitraModel {
-  String id, namaUsaha, kontak, alamat, jenisUsaha;
+  final String id, nama, noHp, alamat;
+
+  // Alias kompatibilitas screen lama
+  String get namaUsaha  => nama;
+  String get kontak     => noHp;
+  String get jenisUsaha => '';
 
   MitraModel({
     required this.id,
-    required this.namaUsaha,
-    required this.kontak,
+    required this.nama,
+    required this.noHp,
     required this.alamat,
-    required this.jenisUsaha,
   });
+
+  factory MitraModel.fromJson(Map<String, dynamic> j) => MitraModel(
+        id:     j['Id_Mitra']   ?? '',
+        nama:   j['Nama_Mitra'] ?? '',
+        noHp:   j['No_HP']      ?? '',
+        alamat: j['Alamat']     ?? '',
+      );
 }
 
 class ProduksiModel {
-  String id, produsenId, produsenNama, produk, statusStok;
-  DateTime tanggal;
-  double jumlahKg, hargaPerKg;
+  final String id, produsenId, produsenNama, namaProduk;
+  final int jumlahStok;
+  final double hargaProduksi;
+  final String? lokasiTangkap;
+  final DateTime dibuatPada;
+
+  // Alias kompatibilitas screen lama
+  String   get produk     => namaProduk;
+  double   get jumlahKg   => jumlahStok.toDouble();
+  double   get hargaPerKg => hargaProduksi;
+  double   get totalHarga => jumlahStok * hargaProduksi;
+  String   get statusStok => jumlahStok > 0 ? 'Tersedia' : 'Habis';
+  DateTime get tanggal    => dibuatPada;
 
   ProduksiModel({
     required this.id,
     required this.produsenId,
     required this.produsenNama,
-    required this.produk,
-    required this.jumlahKg,
-    required this.hargaPerKg,
-    required this.statusStok,
-    required this.tanggal,
+    required this.namaProduk,
+    required this.jumlahStok,
+    required this.hargaProduksi,
+    required this.dibuatPada,
+    this.lokasiTangkap,
   });
 
-  double get totalHarga => jumlahKg * hargaPerKg;
+  factory ProduksiModel.fromJson(Map<String, dynamic> j) => ProduksiModel(
+        id:            j['Id_Produksi']   ?? '',
+        produsenId:    j['Id_Produsen']   ?? '',
+        produsenNama:  j['Nama_Produsen'] ?? '',
+        namaProduk:    j['Nama_Produk']   ?? '',
+        jumlahStok:    j['Jumlah_Stok']  ?? 0,
+        hargaProduksi: double.tryParse(j['Harga_Produksi'].toString()) ?? 0,
+        lokasiTangkap: j['Lokasi_Tangkap'],
+        dibuatPada:    DateTime.tryParse(j['Dibuat_Pada'] ?? '') ?? DateTime.now(),
+      );
 }
 
 class TransaksiModel {
-  String id, produsenId, produsenNama, mitraId, mitraNama, produk, status;
-  DateTime tanggal;
-  double jumlah, totalHarga;
-  String? konfirmasiMitra; // 'sudah_sampai' | null
-  String? konfirmasiAdmin; // 'dikonfirmasi' | 'ditolak' | null
+  final String id, produsenId, produsenNama, mitraId, mitraNama, namaProduk;
+  final String statusTransaksi, statusKonfirmasi;
+  final double totalHarga;
+  final DateTime tanggal;
+
+  // Alias kompatibilitas screen lama
+  String  get produk          => namaProduk;
+  double  get jumlah          => 0;
+  String  get status          => statusTransaksi;
+  String? get konfirmasiMitra => statusKonfirmasi == 'Sudah_Diterima' ? 'sudah_sampai' : null;
+  String? get konfirmasiAdmin => statusTransaksi == 'Selesai'
+      ? 'dikonfirmasi'
+      : statusTransaksi == 'Dibatalkan'
+          ? 'ditolak'
+          : null;
 
   TransaksiModel({
     required this.id,
@@ -63,194 +111,202 @@ class TransaksiModel {
     required this.produsenNama,
     required this.mitraId,
     required this.mitraNama,
-    required this.produk,
-    required this.jumlah,
+    required this.namaProduk,
+    required this.statusTransaksi,
+    required this.statusKonfirmasi,
     required this.totalHarga,
-    required this.status,
     required this.tanggal,
-    this.konfirmasiMitra,
-    this.konfirmasiAdmin,
   });
+
+  factory TransaksiModel.fromJson(Map<String, dynamic> j) => TransaksiModel(
+        id:               j['Id_Transaksi']    ?? '',
+        produsenId:       j['Id_Produsen']      ?? '',
+        produsenNama:     j['Nama_Produsen']    ?? '',
+        mitraId:          j['Id_Mitra']         ?? '',
+        mitraNama:        j['Nama_Mitra']       ?? '',
+        namaProduk:       j['Nama_Produk']      ?? '',
+        statusTransaksi:  j['Status_Transaksi'] ?? '',
+        statusKonfirmasi: j['Status_Konfirmasi'] ?? '',
+        totalHarga:       double.tryParse(j['Total_Harga'].toString()) ?? 0,
+        tanggal:          DateTime.tryParse(j['Tanggal_Transaksi'] ?? '') ?? DateTime.now(),
+      );
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 class AdminProvider extends ChangeNotifier {
-  // ── Produsen ──
-  final List<ProdusenModel> _produsenList = [
-    ProdusenModel(
-      id: 'P001',
-      nama: 'Budi Santoso',
-      noHp: '081234567890',
-      alamat: 'Jl. Rempang No. 1, Batam',
-      jenisUsaha: 'Pertanian',
-      aktif: true,
-      email: 'budi@rempang.id',
-    ),
-    ProdusenModel(
-      id: 'P002',
-      nama: 'Siti Aminah',
-      noHp: '082345678901',
-      alamat: 'Jl. Galang No. 5, Batam',
-      jenisUsaha: 'Perkebunan',
-      aktif: false,
-      email: 'siti@rempang.id',
-    ),
-  ];
+  List<ProdusenModel>  _produsenList  = [];
+  List<MitraModel>     _mitraList     = [];
+  List<ProduksiModel>  _produksiList  = [];
+  List<TransaksiModel> _transaksiList = [];
 
-  List<ProdusenModel> get produsenList => List.unmodifiable(_produsenList);
+  bool    _isLoading = false;
+  String? _error;
 
-  void tambahProdusen(ProdusenModel p) {
-    _produsenList.add(p);
+  int    _totalProdusen     = 0;
+  int    _totalMitra        = 0;
+  int    _totalProduksi     = 0;
+  int    _totalTransaksi    = 0;
+  int    _transaksiMenunggu = 0;
+  double _totalPendapatan   = 0;
+
+  List<ProdusenModel>  get produsenList      => List.unmodifiable(_produsenList);
+  List<MitraModel>     get mitraList         => List.unmodifiable(_mitraList);
+  List<ProduksiModel>  get produksiList      => List.unmodifiable(_produksiList);
+  List<TransaksiModel> get transaksiList     => List.unmodifiable(_transaksiList);
+  bool                 get isLoading         => _isLoading;
+  String?              get error             => _error;
+  int                  get totalProdusen     => _totalProdusen;
+  int                  get totalMitra        => _totalMitra;
+  int                  get totalProduksi     => _totalProduksi;
+  int                  get totalTransaksi    => _totalTransaksi;
+  int                  get transaksiMenunggu => _transaksiMenunggu;
+  double               get totalPendapatan   => _totalPendapatan;
+
+  // ── Load semua data ───────────────────────────────────────
+
+  Future<void> loadAll() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    await Future.wait([
+      loadDashboard(),
+      loadProdusen(),
+      loadMitra(),
+      loadProduksi(),
+      loadTransaksi(),
+    ]);
+
+    _isLoading = false;
     notifyListeners();
   }
 
-  void updateProdusen(ProdusenModel p) {
-    final i = _produsenList.indexWhere((x) => x.id == p.id);
-    if (i != -1) {
-      _produsenList[i] = p;
+  // ── Dashboard ─────────────────────────────────────────────
+
+  Future<void> loadDashboard() async {
+    final result = await MitraApiService.adminGetDashboard();
+    if (result['success'] == true) {
+      final d = result['data'];
+      _totalProdusen     = d['total_produsen']    ?? 0;
+      _totalMitra        = d['total_mitra']        ?? 0;
+      _totalProduksi     = d['total_produksi']     ?? 0;
+      _totalTransaksi    = d['total_transaksi']    ?? 0;
+      _transaksiMenunggu = d['transaksi_menunggu'] ?? 0;
+      _totalPendapatan   = double.tryParse(d['total_pendapatan'].toString()) ?? 0;
       notifyListeners();
     }
   }
 
-  void toggleStatusProdusen(String id) {
-    final i = _produsenList.indexWhere((x) => x.id == id);
-    if (i != -1) {
-      _produsenList[i].aktif = !_produsenList[i].aktif;
+  // ── Produsen ──────────────────────────────────────────────
+
+  Future<void> loadProdusen() async {
+    final result = await MitraApiService.adminGetProdusen();
+    if (result['success'] == true) {
+      _produsenList = (result['data'] as List)
+          .map((e) => ProdusenModel.fromJson(e))
+          .toList();
       notifyListeners();
     }
   }
 
-  void hapusProdusen(String id) {
-    _produsenList.removeWhere((x) => x.id == id);
-    notifyListeners();
+  Future<Map<String, dynamic>> tambahProdusen({
+    required String nama,
+    required String username,
+    required String password,
+    required String noHp,
+    required String alamat,
+    required String jenisUsaha,
+  }) async {
+    final result = await MitraApiService.adminTambahProdusen(
+      nama: nama, username: username, password: password,
+      noHp: noHp, alamat: alamat, jenisUsaha: jenisUsaha,
+    );
+    if (result['success'] == true) await loadProdusen();
+    return result;
   }
 
-  // ── Mitra ──
-  final List<MitraModel> _mitraList = [
-    MitraModel(
-      id: 'M001',
-      namaUsaha: 'Toko Rempah Jaya',
-      kontak: '083456789012',
-      alamat: 'Jl. Harapan No. 10, Batam',
-      jenisUsaha: 'Distributor',
-    ),
-    MitraModel(
-      id: 'M002',
-      namaUsaha: 'CV. Nusantara Spice',
-      kontak: '084567890123',
-      alamat: 'Jl. Maju No. 3, Batam',
-      jenisUsaha: 'Retailer',
-    ),
-  ];
-
-  List<MitraModel> get mitraList => List.unmodifiable(_mitraList);
-
-  void tambahMitra(MitraModel m) {
-    _mitraList.add(m);
-    notifyListeners();
+  Future<Map<String, dynamic>> updateProdusen({
+    required String id,
+    required String nama,
+    required String noHp,
+    required String alamat,
+    required String jenisUsaha,
+    String? password,
+  }) async {
+    final result = await MitraApiService.adminUpdateProdusen(
+      id: id, nama: nama, noHp: noHp,
+      alamat: alamat, jenisUsaha: jenisUsaha, password: password,
+    );
+    if (result['success'] == true) await loadProdusen();
+    return result;
   }
 
-  void updateMitra(MitraModel m) {
-    final i = _mitraList.indexWhere((x) => x.id == m.id);
-    if (i != -1) {
-      _mitraList[i] = m;
+  Future<Map<String, dynamic>> hapusProdusen(String id) async {
+    final result = await MitraApiService.adminHapusProdusen(id);
+    if (result['success'] == true) {
+      _produsenList.removeWhere((p) => p.id == id);
+      notifyListeners();
+    }
+    return result;
+  }
+
+  // Alias kompatibilitas screen lama
+  void toggleStatusProdusen(String id) => notifyListeners();
+
+  // ── Mitra ─────────────────────────────────────────────────
+
+  Future<void> loadMitra() async {
+    final result = await MitraApiService.adminGetMitra();
+    if (result['success'] == true) {
+      _mitraList = (result['data'] as List)
+          .map((e) => MitraModel.fromJson(e))
+          .toList();
       notifyListeners();
     }
   }
 
-  void hapusMitra(String id) {
-    _mitraList.removeWhere((x) => x.id == id);
-    notifyListeners();
+  Future<Map<String, dynamic>> hapusMitra(String id) async {
+    final result = await MitraApiService.adminHapusMitra(id);
+    if (result['success'] == true) {
+      _mitraList.removeWhere((m) => m.id == id);
+      notifyListeners();
+    }
+    return result;
   }
 
-  // ── Produksi ──
-  final List<ProduksiModel> _produksiList = [
-    ProduksiModel(
-      id: 'PR001',
-      produsenId: 'P001',
-      produsenNama: 'Budi Santoso',
-      produk: 'Lada Hitam',
-      jumlahKg: 50,
-      hargaPerKg: 85000,
-      statusStok: 'Tersedia',
-      tanggal: DateTime(2026, 4, 20),
-    ),
-    ProduksiModel(
-      id: 'PR002',
-      produsenId: 'P002',
-      produsenNama: 'Siti Aminah',
-      produk: 'Kayu Manis',
-      jumlahKg: 30,
-      hargaPerKg: 60000,
-      statusStok: 'Habis',
-      tanggal: DateTime(2026, 4, 22),
-    ),
-  ];
+  // Alias kompatibilitas screen lama
+  void tambahMitra(MitraModel m) => notifyListeners();
+  void updateMitra(MitraModel m) => notifyListeners();
 
-  List<ProduksiModel> get produksiList => List.unmodifiable(_produksiList);
+  // ── Produksi ──────────────────────────────────────────────
 
-  void tambahProduksi(ProduksiModel p) {
-    _produksiList.add(p);
-    notifyListeners();
-  }
-
-  void hapusProduksi(String id) {
-    _produksiList.removeWhere((x) => x.id == id);
-    notifyListeners();
-  }
-
-  // ── Transaksi ──
-  final List<TransaksiModel> _transaksiList = [
-    TransaksiModel(
-      id: 'T001',
-      produsenId: 'P001',
-      produsenNama: 'Budi Santoso',
-      mitraId: 'M001',
-      mitraNama: 'Toko Rempah Jaya',
-      produk: 'Lada Hitam',
-      jumlah: 20,
-      totalHarga: 1700000,
-      status: 'Menunggu Konfirmasi',
-      tanggal: DateTime(2026, 4, 25),
-      konfirmasiMitra: 'sudah_sampai',
-      konfirmasiAdmin: null,
-    ),
-    TransaksiModel(
-      id: 'T002',
-      produsenId: 'P002',
-      produsenNama: 'Siti Aminah',
-      mitraId: 'M002',
-      mitraNama: 'CV. Nusantara Spice',
-      produk: 'Kayu Manis',
-      jumlah: 15,
-      totalHarga: 900000,
-      status: 'Selesai',
-      tanggal: DateTime(2026, 4, 23),
-      konfirmasiMitra: 'sudah_sampai',
-      konfirmasiAdmin: 'dikonfirmasi',
-    ),
-  ];
-
-  List<TransaksiModel> get transaksiList => List.unmodifiable(_transaksiList);
-
-  void konfirmasiPembayaran(String id, bool dikonfirmasi) {
-    final i = _transaksiList.indexWhere((x) => x.id == id);
-    if (i != -1) {
-      _transaksiList[i].konfirmasiAdmin =
-          dikonfirmasi ? 'dikonfirmasi' : 'ditolak';
-      _transaksiList[i].status = dikonfirmasi ? 'Selesai' : 'Ditolak';
+  Future<void> loadProduksi() async {
+    final result = await MitraApiService.adminGetProduksi();
+    if (result['success'] == true) {
+      _produksiList = (result['data'] as List)
+          .map((e) => ProduksiModel.fromJson(e))
+          .toList();
       notifyListeners();
     }
   }
 
-  // ── Stats untuk dashboard ──
-  int get totalProdusen => _produsenList.length;
-  int get totalMitra => _mitraList.length;
-  int get totalProduksi => _produksiList.length;
-  int get totalTransaksi => _transaksiList.length;
-  int get transaksiMenunggu =>
-      _transaksiList.where((t) => t.konfirmasiAdmin == null && t.konfirmasiMitra == 'sudah_sampai').length;
-  double get totalPendapatan =>
-      _transaksiList.where((t) => t.status == 'Selesai').fold(0, (s, t) => s + t.totalHarga);
+  // Alias kompatibilitas screen lama
+  void tambahProduksi(ProduksiModel p) => notifyListeners();
+  void hapusProduksi(String id)        => notifyListeners();
+
+  // ── Transaksi ─────────────────────────────────────────────
+
+  Future<void> loadTransaksi() async {
+    final result = await MitraApiService.adminGetTransaksi();
+    if (result['success'] == true) {
+      _transaksiList = (result['data'] as List)
+          .map((e) => TransaksiModel.fromJson(e))
+          .toList();
+      notifyListeners();
+    }
+  }
+
+  // Alias kompatibilitas screen lama
+  void konfirmasiPembayaran(String id, bool dikonfirmasi) => notifyListeners();
 }

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../providers/transaksi_provider.dart'; 
-import '../../theme/app_theme.dart';
-import '../../widgets/shared_widget.dart';
+import '../../theme/app_theme.dart'; 
+import '../../services/mitra_api_service.dart';
 
 class RiwayatTransaksiScreen extends StatefulWidget {
   const RiwayatTransaksiScreen({super.key});
@@ -11,132 +9,173 @@ class RiwayatTransaksiScreen extends StatefulWidget {
 }
 
 class _RiwayatTransaksiScreenState extends State<RiwayatTransaksiScreen> {
-  String _filter = 'Semua';
+  List<dynamic> _allData = [];
+  bool _isLoading = true;
+  String _selectedTab = 'Semua';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    final result = await MitraApiService.getProdusenTransaksi();
+    if (!mounted) return;
+    setState(() {
+      _allData = result['data'] ?? [];
+      _isLoading = false;
+    });
+  }
+
+  List<dynamic> get _filteredData {
+    if (_selectedTab == 'Selesai') return _allData.where((e) => e['status'] == 'selesai').toList();
+    if (_selectedTab == 'Diproses') return _allData.where((e) => e['status'] == 'diproses').toList();
+    return _allData;
+  }
+
+  String _formatRp(dynamic val) {
+    final v = int.tryParse(val.toString()) ?? 0;
+    return v.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
+  }
+
+  // Penerjemah warna dan teks badge status
+  Widget _buildBadge(String status) {
+    Color bgColor = AppColors.bgPage;
+    Color textColor = AppColors.textSecondary;
+    String label = '-';
+
+    switch (status.toLowerCase()) {
+      case 'selesai':
+        bgColor = AppColors.successGreen.withOpacity(0.15);
+        textColor = AppColors.successGreen;
+        label = 'Selesai';
+        break;
+      case 'diproses':
+        bgColor = AppColors.blue.withOpacity(0.15);
+        textColor = AppColors.blue;
+        label = 'Diproses';
+        break;
+      case 'ditolak':
+        bgColor = AppColors.deleteRed.withOpacity(0.15);
+        textColor = AppColors.deleteRed;
+        label = 'Ditolak';
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20)),
+      child: Text(label, style: TextStyle(color: textColor, fontSize: 11, fontWeight: FontWeight.bold)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<TransaksiProvider>();
-    final filtered = _filter == 'Semua'
-        ? provider.list
-        : provider.list.where((t) => t.status == _filter).toList();
+    final list = _filteredData;
 
     return Scaffold(
       backgroundColor: AppColors.bgPage,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFDFDFD),
+        backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Riwayat Transaksi',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF222222))),
-            Text('${provider.list.length} total transaksi',
-                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            const Text('Riwayat Transaksi', style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('${_allData.length} total transaksi', style: const TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
-        toolbarHeight: 64,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: const Color(0xFFE4E4E4)),
-        ),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh, color: Colors.grey), onPressed: _loadData),
+        ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: Column(
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              CategoryChip('Semua',   isActive: _filter == 'Semua',   onTap: () => setState(() => _filter = 'Semua')),
-              const SizedBox(width: 8),
-              CategoryChip('Selesai', isActive: _filter == 'Selesai', onTap: () => setState(() => _filter = 'Selesai')),
-              const SizedBox(width: 8),
-              CategoryChip('Ditolak', isActive: _filter == 'Ditolak', onTap: () => setState(() => _filter = 'Ditolak')),
-            ]),
-          ),
-          const SizedBox(height: 12),
-          const AppDivider(),
-          const SizedBox(height: 12),
-
-          if (filtered.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 40),
-                child: Column(children: const [
-                  Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.textSecondary),
-                  SizedBox(height: 8),
-                  Text('Belum ada riwayat transaksi',
-                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                ]),
-              ),
-            )
-          else
-            ...filtered.map((t) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(t.mitra,
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
-                          const SizedBox(height: 2),
-                          Text('${t.produk} · ${t.jumlah}',
-                              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                          Text(t.tanggal,
-                              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                        ]),
-                        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          Text(t.harga,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: t.status == 'Selesai' ? AppColors.textSuccess : AppColors.textSecondary)),
-                          const SizedBox(height: 4),
-                          StatusBadge(t.status,
-                              type: t.status == 'Selesai' ? BadgeType.green : BadgeType.red),
-                        ]),
-                      ],
-                    ),
-                    if (t.status == 'Ditolak' && t.alasanTolak != null) ...[
-                      const SizedBox(height: 10),
-                      const AppDivider(),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.badgeRedBg,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.info_outline, size: 13, color: AppColors.textDanger),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Alasan ditolak:',
-                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textDanger)),
-                                  const SizedBox(height: 2),
-                                  Text(t.alasanTolak!,
-                                      style: const TextStyle(fontSize: 11, color: AppColors.textDanger)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+          // Filter Chips
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: ['Semua', 'Selesai', 'Diproses'].map((tab) {
+                final isSelected = _selectedTab == tab;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: InkWell(
+                    onTap: () => setState(() => _selectedTab = tab),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.blue : AppColors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ],
-                  ],
-                ),
-              ),
-            )),
+                      child: Text(tab, style: TextStyle(
+                        color: isSelected ? Colors.white : AppColors.blue,
+                        fontSize: 13, fontWeight: FontWeight.w600,
+                      )),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFE4E4E4)),
+          
+          // List Transaksi
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : list.isEmpty
+                    ? const Center(child: Text('Belum ada transaksi', style: TextStyle(color: Colors.grey)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: list.length,
+                        itemBuilder: (_, i) {
+                          final item = list[i];
+                          // Tangkap total_harga dengan aman
+                          final harga = item['total_harga'] ?? item['estimasi_total'] ?? 0;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFE4E4E4)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Info Kiri
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(item['nama_mitra'] ?? 'Mitra', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                    const SizedBox(height: 4),
+                                    Text('${item['nama_produk'] ?? '-'} · ${item['jumlah_permintaan'] ?? 0} kg', 
+                                        style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                    const SizedBox(height: 4),
+                                    Text(item['tanggal_permintaan']?.toString().substring(0, 10) ?? '-', 
+                                        style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                  ],
+                                ),
+                                // Harga & Badge Kanan
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text('Rp ${_formatRp(harga)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                    const SizedBox(height: 8),
+                                    _buildBadge(item['status'] ?? ''),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
         ],
       ),
     );

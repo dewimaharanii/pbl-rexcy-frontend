@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rempang_eco_city/providers/admin_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_logo.dart';
+import '../services/mitra_api_service.dart';
 import '../providers/user_provider.dart';
+import '../models/user_model.dart';
 import 'register.dart';
 import 'forgot_password.dart';
 import 'home_screen.dart';
-import 'admin/admin_dashboard_screen.dart';
 import 'produsen/produsen_shell.dart';
+import 'package:rempang_eco_city/screens/admin/admin_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -18,7 +22,9 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl  = TextEditingController();
-  bool _obscure    = true;
+
+  bool _obscure   = true;
+  bool _isLoading = false;
   String? _errorMsg;
 
   @override
@@ -28,38 +34,113 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
-    setState(() => _errorMsg = null);
+  Future<void> _login() async {
+    setState(() {
+      _errorMsg  = null;
+      _isLoading = true;
+    });
 
-    if (_emailCtrl.text.trim().isEmpty || _passCtrl.text.isEmpty) {
-      setState(() => _errorMsg = 'Email dan password wajib diisi');
+    if (_emailCtrl.text.trim().isEmpty || _passCtrl.text.trim().isEmpty) {
+      setState(() {
+        _errorMsg  = 'Username dan password wajib diisi';
+        _isLoading = false;
+      });
       return;
     }
 
-    final user = context
-        .read<UserProvider>()
-        .login(_emailCtrl.text.trim(), _passCtrl.text);
+    final username = _emailCtrl.text.trim();
+    final password = _passCtrl.text.trim();
 
-    if (user == null) {
-      setState(() => _errorMsg = 'Email atau password salah');
-      return;
+    try {
+      // ── Admin ──────────────────────────────────────────
+      final adminResult = await MitraApiService.loginAdmin(
+        username: username,
+        password: password,
+      );
+      print('=== ADMIN: $adminResult');
+
+      if (!mounted) return;
+
+      if (adminResult['success'] == true) {
+        final userData = adminResult['data'];
+        context.read<UserProvider>().setUser(UserModel(
+          name:     userData['Nama_Admin'] ?? userData['Username'] ?? '',
+          email:    userData['Username']   ?? '',
+          phone:    '',
+          password: '',
+          role:     'admin',
+        ));
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+          (route) => false,
+        );
+        return;
+      }
+
+      // ── Mitra ──────────────────────────────────────────
+      final mitraResult = await MitraApiService.loginMitra(
+        username: username,
+        password: password,
+      );
+      print('=== MITRA: $mitraResult');
+
+      if (!mounted) return;
+
+      if (mitraResult['success'] == true) {
+        final userData = mitraResult['data'];
+        context.read<UserProvider>().setUser(UserModel(
+          name:     userData['Nama_Mitra'] ?? '',
+          email:    userData['Username']   ?? '',
+          phone:    userData['No_HP']      ?? '',
+          password: '',
+          role:     'mitra',
+        ));
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => HomeScreen()),
+          (route) => false,
+        );
+        return;
+      }
+
+      // ── Produsen ───────────────────────────────────────
+      final produsenResult = await MitraApiService.loginProdusen(
+        username: username,
+        password: password,
+      );
+      print('=== PRODUSEN: $produsenResult');
+
+      if (!mounted) return;
+
+      if (produsenResult['success'] == true) {
+        final userData = produsenResult['data'];
+        context.read<UserProvider>().setUser(UserModel(
+          name:     userData['Nama_Produsen'] ?? '',
+          email:    userData['Username']      ?? '',
+          phone:    userData['No_HP']         ?? '',
+          password: '',
+          role:     'produsen',
+        ));
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const ProdusenShell()),
+          (route) => false,
+        );
+        return;
+      }
+
+      setState(() => _errorMsg = 'Username atau password salah');
+
+    } catch (e) {
+      print('=== ERROR LOGIN: $e');
+      setState(() => _errorMsg = 'Terjadi kesalahan: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-
-    // Redirect berdasarkan role
-    Widget destination;
-    if (user.role == 'admin') {
-      destination = AdminDashboardScreen();
-    } else if (user.role == 'produsen') {
-      destination = const ProdusenShell(initialIndex: 0);
-    } else {
-      destination = const HomeScreen();
-    }
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => destination),
-      (_) => false,
-    );
   }
 
   @override
@@ -75,7 +156,6 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const AppLogo(height: 80, white: false),
                 const SizedBox(height: 32),
-
                 const Text(
                   'Selamat Datang',
                   style: TextStyle(
@@ -83,24 +163,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'Masuk ke akun kamu',
                   style: TextStyle(
                       color: AppColors.textSecondary, fontSize: 14),
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
 
                 TextField(
                   controller: _emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    hintText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined,
-                        color: AppColors.iconGrey),
+                    hintText: 'Username',
+                    prefixIcon: Icon(Icons.person_outline),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -110,15 +186,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: _obscure,
                   decoration: InputDecoration(
                     hintText: 'Password',
-                    prefixIcon: const Icon(Icons.lock_outline,
-                        color: AppColors.iconGrey),
+                    prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscure
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: AppColors.iconGrey,
-                      ),
+                      icon: Icon(_obscure
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined),
                       onPressed: () =>
                           setState(() => _obscure = !_obscure),
                     ),
@@ -126,22 +198,28 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
 
                 if (_errorMsg != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: AppColors.deleteRed.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                          color:
-                              AppColors.deleteRed.withOpacity(0.3)),
+                          color: AppColors.deleteRed.withOpacity(0.3)),
                     ),
-                    child: Text(_errorMsg!,
-                        style: const TextStyle(
-                            color: AppColors.deleteRed,
-                            fontSize: 13)),
+                    child: Row(children: [
+                      const Icon(Icons.error_outline,
+                          color: AppColors.deleteRed, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(_errorMsg!,
+                            style: const TextStyle(
+                                color: AppColors.deleteRed,
+                                fontSize: 13)),
+                      ),
+                    ]),
                   ),
                 ],
 
@@ -151,12 +229,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) =>
-                              const ForgotPasswordScreen()),
+                          builder: (_) => const ForgotPasswordScreen()),
                     ),
                     child: const Text('Lupa Password?',
-                        style: TextStyle(
-                            color: AppColors.blue, fontSize: 13)),
+                        style: TextStyle(color: AppColors.blue)),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -165,11 +241,24 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _login,
-                    child: const Text('Masuk',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
+                    onPressed: _isLoading ? null : _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text('Masuk',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -178,8 +267,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text('Belum punya akun? ',
-                        style: TextStyle(
-                            color: AppColors.textSecondary)),
+                        style: TextStyle(color: AppColors.textSecondary)),
                     GestureDetector(
                       onTap: () => Navigator.push(
                         context,
@@ -193,7 +281,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 32),
               ],
             ),
           ),

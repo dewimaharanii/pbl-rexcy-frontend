@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 
-class RoleSwitch extends StatelessWidget { // ← ganti nama class
+class RoleSwitch extends StatelessWidget { 
   const RoleSwitch({Key? key}) : super(key: key);
 
   @override
@@ -28,7 +28,7 @@ class RoleSwitch extends StatelessWidget { // ← ganti nama class
                 subtitle: 'Beli produk laut segar',
                 icon: Icons.shopping_bag_outlined,
                 onTap: () => Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => const HomeScreen())),
+                    MaterialPageRoute(builder: (_) => HomeScreen())), // Hapus const di sini
               ),
               const SizedBox(height: 16),
               _RoleCard(
@@ -36,7 +36,7 @@ class RoleSwitch extends StatelessWidget { // ← ganti nama class
                 subtitle: 'Kelola dan jual produk Anda',
                 icon: Icons.store_outlined,
                 onTap: () => Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => const HomeScreen())),
+                    MaterialPageRoute(builder: (_) => HomeScreen())), // Hapus const di sini
               ),
             ],
           ),

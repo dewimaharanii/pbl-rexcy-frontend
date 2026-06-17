@@ -1,466 +1,300 @@
+// lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../services/mitra_api_service.dart';
 import '../theme/app_theme.dart';
 import 'login.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({Key? key}) : super(key: key);
+
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  late TextEditingController _namaCtrl;
-  late TextEditingController _teleponCtrl;
-  late TextEditingController _passwordBaruCtrl;
-  late TextEditingController _konfirmasiCtrl;
+  final _namaCtrl       = TextEditingController();
+  final _noHpCtrl       = TextEditingController();
+  final _passBaruCtrl   = TextEditingController();
+  final _konfirmasiCtrl = TextEditingController();
 
-  bool _edited      = false;
-  bool _obscureBaru = true;
-  bool _obscureKonf = true;
+  bool _obscurePass    = true;
+  bool _obscureKonfirm = true;
 
   @override
   void initState() {
     super.initState();
-    final user = context.read<UserProvider>().user!;
-    _namaCtrl         = TextEditingController(text: user.name);
-    _teleponCtrl      = TextEditingController(text: user.phone ?? '');
-    _passwordBaruCtrl = TextEditingController();
-    _konfirmasiCtrl   = TextEditingController();
-
-    for (final c in [_namaCtrl, _teleponCtrl, _passwordBaruCtrl, _konfirmasiCtrl]) {
-      c.addListener(() { if (mounted) setState(() => _edited = true); });
-    }
+    // Isi form dari data user yang sedang login
+    final user = context.read<UserProvider>().user;
+    _namaCtrl.text  = user?.name  ?? '';
+    _noHpCtrl.text  = user?.phone ?? '';
   }
 
   @override
   void dispose() {
     _namaCtrl.dispose();
-    _teleponCtrl.dispose();
-    _passwordBaruCtrl.dispose();
+    _noHpCtrl.dispose();
+    _passBaruCtrl.dispose();
     _konfirmasiCtrl.dispose();
     super.dispose();
   }
 
-  void _simpan() {
-    // Validasi password baru kalau diisi
-    if (_passwordBaruCtrl.text.isNotEmpty) {
-      if (_passwordBaruCtrl.text.length < 6) {
-        _snackbar('Kata sandi baru minimal 6 karakter', isError: true);
-        return;
-      }
-      if (_passwordBaruCtrl.text != _konfirmasiCtrl.text) {
-        _snackbar('Konfirmasi kata sandi tidak cocok', isError: true);
-        return;
-      }
-    }
-
+  Future<void> _simpanProfile() async {
+    // Validasi nama
     if (_namaCtrl.text.trim().isEmpty) {
       _snackbar('Nama tidak boleh kosong', isError: true);
       return;
     }
 
-    // Update via UserProvider
-    context.read<UserProvider>().updateUser(
-      name:     _namaCtrl.text.trim(),
-      phone:    _teleponCtrl.text.trim(),
-      password: _passwordBaruCtrl.text.isNotEmpty
-          ? _passwordBaruCtrl.text
-          : null,
+    // Validasi password baru (hanya kalau diisi)
+    if (_passBaruCtrl.text.isNotEmpty) {
+      if (_passBaruCtrl.text.length < 6) {
+        _snackbar('Password baru minimal 6 karakter', isError: true);
+        return;
+      }
+      if (_passBaruCtrl.text != _konfirmasiCtrl.text) {
+        _snackbar('Konfirmasi password tidak cocok', isError: true);
+        return;
+      }
+    }
+
+    // Panggil API via provider
+    final result = await context.read<UserProvider>().updateProfileApi(
+      nama:         _namaCtrl.text.trim(),
+      noHp:         _noHpCtrl.text.trim(),
+      passwordBaru: _passBaruCtrl.text.isNotEmpty ? _passBaruCtrl.text : null,
     );
 
-    setState(() {
-      _edited = false;
-      _passwordBaruCtrl.clear();
-      _konfirmasiCtrl.clear();
-    });
+    if (!mounted) return;
 
-    _snackbar('Profil berhasil disimpan');
+    if (result['success'] == true) {
+      _passBaruCtrl.clear();
+      _konfirmasiCtrl.clear();
+      _snackbar('Profil berhasil diperbarui!');
+    } else {
+      _snackbar(result['message'] ?? 'Gagal memperbarui profil', isError: true);
+    }
   }
 
-  void _logout() async {
-    final konfirmasi = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFFFDFDFD),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Keluar',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        content: const Text(
-            'Apakah kamu yakin ingin keluar dari akun ini?',
-            style: TextStyle(fontSize: 13, color: Colors.grey)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal',
-                style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('Keluar'),
-          ),
-        ],
-      ),
-    );
-
-    if (konfirmasi != true) return;
-
+  Future<void> _logout() async {
+    await MitraApiService.logoutMitra();
     if (!mounted) return;
     context.read<UserProvider>().logout();
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
+      (_) => false,
     );
   }
 
   void _snackbar(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: isError ? Colors.red : AppColors.successGreen,
+      backgroundColor: isError ? AppColors.deleteRed : AppColors.successGreen,
     ));
   }
 
   @override
   Widget build(BuildContext context) {
-    // watch supaya UI update saat updateUser dipanggil
-    final user = context.watch<UserProvider>().user!;
+    final provider = context.watch<UserProvider>();
+    final user     = provider.user;
+    final loading  = provider.isLoading;
 
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFDFDFD),
+        title: const Text('Profil Saya'),
+        backgroundColor: AppColors.bgPrimary,
         elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Profil Saya',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF222222))),
-            Text('Kelola informasi akunmu',
-                style: TextStyle(fontSize: 11, color: Colors.grey)),
-          ],
-        ),
-        toolbarHeight: 64,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: const Color(0xFFE4E4E4)),
-        ),
+        foregroundColor: AppColors.textPrimary,
+        actions: [
+          TextButton.icon(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout, size: 18, color: AppColors.deleteRed),
+            label: const Text('Keluar',
+                style: TextStyle(color: AppColors.deleteRed, fontSize: 13)),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
-        child: Column(children: [
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
 
-          // ── Header avatar ──────────────────────────────────────────
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
-            decoration: const BoxDecoration(color: AppColors.blue),
-            child: Column(children: [
-              CircleAvatar(
-                radius: 38,
-                backgroundColor: Colors.white.withOpacity(0.25),
-                child: Text(
-                  user.name.isNotEmpty ? user.name[0].toUpperCase() : 'P',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold),
+            // ── Avatar ──────────────────────────────────────────────────
+            Center(
+              child: Column(children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: AppColors.blue.withOpacity(0.15),
+                  child: Text(
+                    (user?.name.isNotEmpty == true)
+                        ? user!.name[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.blue),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-
-              // ← Nama sesuai user yang login
-              Text(
-                user.name.isEmpty ? 'Nama Pengguna' : user.name,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18),
-              ),
-              const SizedBox(height: 4),
-
-              // ← Email sesuai user yang login
-              Text(
-                user.email,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-              ),
-              const SizedBox(height: 10),
-
-              // ← Badge role sesuai user yang login
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                  border:
-                      Border.all(color: Colors.white.withOpacity(0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      user.role == 'produsen'
-                          ? Icons.set_meal_outlined
-                          : user.role == 'admin'
-                              ? Icons.admin_panel_settings_outlined
-                              : Icons.store_outlined,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      user.role == 'produsen'
-                          ? 'Produsen'
-                          : user.role == 'admin'
-                              ? 'Admin'
-                              : 'Mitra Hilir',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 20),
-
-          // ── Form edit profil ───────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: AppColors.bgCard,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 8)
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Atur Profil',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: AppColors.textPrimary)),
-                  const SizedBox(height: 18),
-
-                  // Nama
-                  _fieldLabel('Nama Lengkap'),
-                  _field(_namaCtrl, 'Masukkan nama lengkap',
-                      Icons.person_outline),
-                  const SizedBox(height: 14),
-
-                  // Telepon
-                  _fieldLabel('Nomor Telepon'),
-                  _field(_teleponCtrl, 'Masukkan nomor telepon',
-                      Icons.phone_outlined,
-                      type: TextInputType.phone),
-                  const SizedBox(height: 14),
-
-                  // Email (readonly)
-                  _fieldLabel('Email'),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: const Color(0xFFE4E4E4), width: 0.5),
-                    ),
-                    child: Row(children: [
-                      const Icon(Icons.email_outlined,
-                          size: 18, color: Colors.grey),
-                      const SizedBox(width: 10),
-                      Text(user.email,
-                          style: const TextStyle(
-                              fontSize: 13, color: Colors.grey)),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEDF2F8),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text('Tidak dapat diubah',
-                            style: TextStyle(
-                                fontSize: 9,
-                                color: Color(0xFF3A6FA8))),
-                      ),
-                    ]),
+                const SizedBox(height: 8),
+                Text(user?.email ?? '',
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 13)),
+                const SizedBox(height: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.successGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  const SizedBox(height: 20),
-
-                  // Divider ubah password
-                  Row(children: const [
-                    Expanded(
-                        child: Divider(color: Color(0xFFE4E4E4))),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: Text('Ubah Kata Sandi',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey)),
-                    ),
-                    Expanded(
-                        child: Divider(color: Color(0xFFE4E4E4))),
-                  ]),
-                  const SizedBox(height: 4),
-                  const Text(
-                      'Kosongkan jika tidak ingin mengubah kata sandi',
-                      style:
-                          TextStyle(fontSize: 11, color: Colors.grey)),
-                  const SizedBox(height: 14),
-
-                  // Password baru
-                  _fieldLabel('Kata Sandi Baru'),
-                  TextFormField(
-                    controller: _passwordBaruCtrl,
-                    obscureText: _obscureBaru,
-                    style: const TextStyle(fontSize: 13),
-                    decoration:
-                        _deco('Masukkan kata sandi baru', Icons.lock_outline)
-                            .copyWith(
-                      suffixIcon: GestureDetector(
-                        onTap: () => setState(
-                            () => _obscureBaru = !_obscureBaru),
-                        child: Icon(
-                          _obscureBaru
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          size: 18,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Konfirmasi password
-                  _fieldLabel('Konfirmasi Kata Sandi Baru'),
-                  TextFormField(
-                    controller: _konfirmasiCtrl,
-                    obscureText: _obscureKonf,
-                    style: const TextStyle(fontSize: 13),
-                    decoration:
-                        _deco('Ulangi kata sandi baru', Icons.lock_outline)
-                            .copyWith(
-                      suffixIcon: GestureDetector(
-                        onTap: () => setState(
-                            () => _obscureKonf = !_obscureKonf),
-                        child: Icon(
-                          _obscureKonf
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          size: 18,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-
-                  // Tombol simpan
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _edited ? _simpan : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _edited
-                            ? AppColors.blue
-                            : AppColors.divider,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        disabledBackgroundColor: AppColors.divider,
-                        disabledForegroundColor: Colors.grey,
-                      ),
-                      child: const Text('SIMPAN',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Tombol keluar ──────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: _logout,
-                icon: const Icon(Icons.logout,
-                    color: AppColors.deleteRed, size: 18),
-                label: const Text('Keluar dari Akun',
-                    style: TextStyle(
-                        color: AppColors.deleteRed,
+                  child: Text(
+                    user?.role.toUpperCase() ?? 'MITRA',
+                    style: const TextStyle(
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        fontSize: 15)),
-                style: OutlinedButton.styleFrom(
-                  side:
-                      const BorderSide(color: AppColors.deleteRed),
+                        color: AppColors.successGreen),
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 32),
+
+            // ── Form Data Diri ───────────────────────────────────────────
+            _sectionTitle('Data Diri'),
+            const SizedBox(height: 16),
+
+            _buildLabel('Nama Lengkap'),
+            const SizedBox(height: 6),
+            _buildTextField(_namaCtrl, 'Nama lengkap', Icons.person_outline),
+            const SizedBox(height: 16),
+
+            _buildLabel('Nomor HP'),
+            const SizedBox(height: 6),
+            _buildTextField(_noHpCtrl, 'Nomor HP', Icons.phone_outlined,
+                type: TextInputType.phone),
+            const SizedBox(height: 24),
+
+            // ── Ganti Password ───────────────────────────────────────────
+            const Divider(),
+            const SizedBox(height: 16),
+            _sectionTitle('Ganti Password'),
+            const SizedBox(height: 4),
+            const Text(
+              'Kosongkan jika tidak ingin mengganti password',
+              style:
+                  TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+
+            _buildLabel('Password Baru'),
+            const SizedBox(height: 6),
+            _buildPasswordField(
+              _passBaruCtrl, 'Minimal 6 karakter',
+              _obscurePass,
+              () => setState(() => _obscurePass = !_obscurePass),
+            ),
+            const SizedBox(height: 16),
+
+            _buildLabel('Konfirmasi Password Baru'),
+            const SizedBox(height: 6),
+            _buildPasswordField(
+              _konfirmasiCtrl, 'Ulangi password baru',
+              _obscureKonfirm,
+              () => setState(() => _obscureKonfirm = !_obscureKonfirm),
+            ),
+            const SizedBox(height: 32),
+
+            // ── Tombol Simpan ────────────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: loading ? null : _simpanProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.blue,
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
+                child: loading
+                    ? const SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('Simpan Perubahan',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
-          ),
-          const SizedBox(height: 28),
-        ]),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _fieldLabel(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(text,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary)),
+  Widget _sectionTitle(String title) => Text(
+        title,
+        style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary),
       );
 
-  Widget _field(TextEditingController ctrl, String hint, IconData icon,
-      {TextInputType? type}) {
-    return TextFormField(
-      controller: ctrl,
-      keyboardType: type,
-      style: const TextStyle(fontSize: 13, color: Color(0xFF222222)),
-      decoration: _deco(hint, icon),
-    );
-  }
+  Widget _buildLabel(String text) => Text(
+        text,
+        style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: AppColors.textPrimary),
+      );
 
-  InputDecoration _deco(String hint, IconData icon) => InputDecoration(
-        hintText: hint,
-        hintStyle:
-            const TextStyle(fontSize: 13, color: Colors.grey),
-        prefixIcon:
-            Icon(icon, size: 18, color: AppColors.iconGrey),
-        contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12, vertical: 14),
+  Widget _buildTextField(
+    TextEditingController ctrl,
+    String hint,
+    IconData icon, {
+    TextInputType type = TextInputType.text,
+  }) =>
+      TextField(
+        controller: ctrl,
+        keyboardType: type,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle:
+              const TextStyle(color: AppColors.iconGrey, fontSize: 14),
+          prefixIcon: Icon(icon, color: AppColors.iconGrey),
+        ),
+      );
+
+  Widget _buildPasswordField(
+    TextEditingController ctrl,
+    String hint,
+    bool obscure,
+    VoidCallback toggle,
+  ) =>
+      TextField(
+        controller: ctrl,
+        obscureText: obscure,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle:
+              const TextStyle(color: AppColors.iconGrey, fontSize: 14),
+          prefixIcon:
+              const Icon(Icons.lock_outline, color: AppColors.iconGrey),
+          suffixIcon: IconButton(
+            icon: Icon(
+              obscure
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              color: AppColors.iconGrey,
+            ),
+            onPressed: toggle,
+          ),
+        ),
       );
 }

@@ -1,59 +1,101 @@
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
 import '../models/produksi_model.dart';
+import '../services/mitra_api_service.dart';
 
 class ProduksiProvider extends ChangeNotifier {
-  final List<ProduksiModel> _list = [
-    ProduksiModel(
-      id: '001',
-      tanggal: '16 Apr 2026',
-      kategori: 'Ikan',
-      jenisProduk: 'Kerapu',
-      jumlahKg: 120,
-      hargaPerKg: 45000,
-      lokasiTangkap: 'Perairan Rempang Barat',
-      catatan: 'Kualitas grade A',
-    ),
-    ProduksiModel(
-      id: '002',
-      tanggal: '14 Apr 2026',
-      kategori: 'Udang',
-      jenisProduk: 'Vaname',
-      jumlahKg: 80,
-      hargaPerKg: 55000,
-      lokasiTangkap: 'Teluk Rempang',
-      catatan: '',
-    ),
-    ProduksiModel(
-      id: '003',
-      tanggal: '12 Apr 2026',
-      kategori: 'Ikan',
-      jenisProduk: 'Kakap Merah',
-      jumlahKg: 60,
-      hargaPerKg: 40000,
-      lokasiTangkap: 'Perairan Galang',
-      catatan: 'Ukuran sedang-besar',
-    ),
-    ProduksiModel(
-      id: '004',
-      tanggal: '10 Apr 2026',
-      kategori: 'Cumi',
-      jenisProduk: 'Cumi Putih',
-      jumlahKg: 50,
-      hargaPerKg: 50000,
-      lokasiTangkap: 'Perairan Rempang',
-      catatan: '',
-    ),
-  ];
+  List<ProduksiModel> _list = [];
+  bool _isLoading           = false;
+  String? _errorMsg;
 
-  List<ProduksiModel> get list => List.unmodifiable(_list);
+  List<ProduksiModel> get list      => List.unmodifiable(_list);
+  bool get isLoading                => _isLoading;
+  String? get errorMsg              => _errorMsg;
 
-  void tambah(ProduksiModel item) {
-    _list.insert(0, item);
+  Future<void> loadProduksi() async {
+    _isLoading = true;
+    _errorMsg  = null;
     notifyListeners();
+
+    try {
+      final result = await MitraApiService.getProdusenProduksi();
+      if (result['success'] == true) {
+        final List data = result['data'] ?? [];
+        _list = data.map((e) => ProduksiModel.fromJson(e)).toList();
+      } else {
+        _errorMsg = result['message'] ?? 'Gagal memuat data';
+      }
+    } catch (e) {
+      _errorMsg = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  void hapus(String id) {
-    _list.removeWhere((e) => e.id == id);
-    notifyListeners();
+  Future<Map<String, dynamic>> tambahProduksi({
+    required String namaProduk,
+    required double hargaPerKg,
+    required double jumlahKg,
+    required String lokasiTangkap,
+    String? catatan,
+    Uint8List? gambarBytes,
+    String? gambarNama,
+  }) async {
+    try {
+      final result = await MitraApiService.tambahProduksi(
+        namaProduk:    namaProduk,
+        hargaProduksi: hargaPerKg.toInt(),
+        stok:          jumlahKg.toInt(),
+        lokasiTangkap: lokasiTangkap,
+        catatan:       catatan,
+        gambarBytes:   gambarBytes,
+        gambarNama:    gambarNama,
+      );
+      if (result['success'] == true) await loadProduksi();
+      return result;
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+  
+
+  Future<Map<String, dynamic>> editProduksi({
+    required String id,
+    required String namaProduk,
+    required double hargaPerKg,
+    required double jumlahKg,
+    required String lokasiTangkap,
+    String? catatan,
+  }) async {
+    try {
+      final result = await MitraApiService.updateProduksi(
+        id:            id,
+        namaProduk:    namaProduk,
+        hargaProduksi: hargaPerKg.toInt(),
+        stok:          jumlahKg.toInt(),
+        lokasiTangkap: lokasiTangkap,
+        catatan:       catatan,
+      );
+      print('== EDIT RESULT: $result');
+      print('== Id yang dikirim: $id');
+      if (result['success'] == true) await loadProduksi();
+      return result;
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<void> hapus(String id) async {
+    try {
+      final result = await MitraApiService.hapusProduksi(id);
+      if (result['success'] == true) {
+        _list.removeWhere((e) => e.id == id);
+        notifyListeners();
+      }
+    } catch (_) {
+      _list.removeWhere((e) => e.id == id);
+      notifyListeners();
+    }
   }
 }

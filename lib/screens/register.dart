@@ -1,41 +1,38 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_logo.dart';
-import '../models/user_model.dart';
-import '../providers/user_provider.dart';
 import '../services/mitra_api_service.dart';
 import 'login.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
+
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // Pilihan role saat daftar
-  String _roleDaftar = 'mitra'; // 'mitra' atau 'produsen'
+  String _roleDaftar = 'mitra';
 
-  // Field umum
   final _nameCtrl        = TextEditingController();
   final _emailCtrl       = TextEditingController();
   final _phoneCtrl       = TextEditingController();
   final _passCtrl        = TextEditingController();
   final _confirmPassCtrl = TextEditingController();
+  final _alamatCtrl      = TextEditingController(); // ← tambah alamat untuk mitra
 
-  // Field khusus produsen
-  final _namaUsahaCtrl    = TextEditingController();
-  final _alamatUsahaCtrl  = TextEditingController();
-  final _nomorNIBCtrl     = TextEditingController();
-  final _deskripsiCtrl    = TextEditingController();
-  String _jenisUsaha      = 'Nelayan';
+  final _namaUsahaCtrl   = TextEditingController();
+  final _alamatUsahaCtrl = TextEditingController();
+  final _nomorNIBCtrl    = TextEditingController();
+  final _deskripsiCtrl   = TextEditingController();
+  String _jenisUsaha     = 'Nelayan';
 
   final _jenisUsahaList = ['Nelayan', 'Budidaya', 'Pengolahan'];
 
   bool _obscure        = true;
   bool _obscureConfirm = true;
+  bool _isLoading      = false;
   String? _errorMsg;
 
   @override
@@ -45,6 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _phoneCtrl.dispose();
     _passCtrl.dispose();
     _confirmPassCtrl.dispose();
+    _alamatCtrl.dispose();
     _namaUsahaCtrl.dispose();
     _alamatUsahaCtrl.dispose();
     _nomorNIBCtrl.dispose();
@@ -52,82 +50,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // ── Registrasi Mitra Hilir (langsung bisa login) ──────────────────────────
   Future<void> _registerMitra() async {
-  setState(() => _errorMsg = null);
+    setState(() {
+      _errorMsg  = null;
+      _isLoading = true;
+    });
 
-  if (_nameCtrl.text.trim().isEmpty ||
-      _emailCtrl.text.trim().isEmpty ||
-      _passCtrl.text.isEmpty) {
-    setState(() => _errorMsg = 'Nama, email, dan password wajib diisi');
-    return;
-  }
+    if (_nameCtrl.text.trim().isEmpty ||
+        _emailCtrl.text.trim().isEmpty ||
+        _passCtrl.text.isEmpty) {
+      setState(() {
+        _errorMsg  = 'Nama, email, dan password wajib diisi';
+        _isLoading = false;
+      });
+      return;
+    }
 
-  if (_passCtrl.text != _confirmPassCtrl.text) {
-    setState(() => _errorMsg = 'Password tidak sama');
-    return;
-  }
+    if (_passCtrl.text != _confirmPassCtrl.text) {
+      setState(() {
+        _errorMsg  = 'Password tidak sama';
+        _isLoading = false;
+      });
+      return;
+    }
 
-  if (_passCtrl.text.length < 6) {
-    setState(() => _errorMsg = 'Password minimal 6 karakter');
-    return;
-  }
+    if (_passCtrl.text.length < 6) {
+      setState(() {
+        _errorMsg  = 'Password minimal 6 karakter';
+        _isLoading = false;
+      });
+      return;
+    }
 
-  try {
-    final result = await MitraApiService.registerMitra(
-      nama: _nameCtrl.text.trim(),
-      email: _emailCtrl.text.trim(),
-      noHp: _phoneCtrl.text.trim(),
-      password: _passCtrl.text,
-    );
-
-    if (result['status'] == true) {
-      final newUser = UserModel(
-        name: _nameCtrl.text.trim(),
-        email: _emailCtrl.text.trim(),
-        phone: _phoneCtrl.text.trim(),
+    try {
+      final result = await MitraApiService.registerMitra(
+        nama:     _nameCtrl.text.trim(),
+        email:    _emailCtrl.text.trim(), // ← ini jadi Username di backend
+        noHp:     _phoneCtrl.text.trim(),
         password: _passCtrl.text,
-        role: 'mitra',
-        statusVerifikasi: 'disetujui',
       );
-
-      context.read<UserProvider>().register(newUser);
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result['message'] ?? 'Akun berhasil dibuat!',
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Akun berhasil dibuat!'),
+            backgroundColor: AppColors.successGreen,
           ),
-          backgroundColor: AppColors.successGreen,
-        ),
-      );
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
-        (_) => false,
-      );
-    } else {
-      setState(() {
-        _errorMsg = result['message'] ?? 'Registrasi gagal';
-      });
+        );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (_) => false,
+        );
+      } else {
+        setState(() => _errorMsg = result['message'] ?? 'Registrasi gagal');
+      }
+    } catch (e) {
+      setState(() => _errorMsg = 'Terjadi kesalahan: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  } catch (e) {
-    setState(() {
-      _errorMsg = 'Terjadi kesalahan: $e';
-    });
   }
-}
 
-  // ── Ajukan Pendaftaran Produsen (kirim via WhatsApp ke admin) ─────────────
   Future<void> _ajukanProdusen() async {
     setState(() => _errorMsg = null);
 
-    // Validasi field wajib
     if (_nameCtrl.text.trim().isEmpty) {
       setState(() => _errorMsg = 'Nama lengkap wajib diisi');
       return;
@@ -149,10 +138,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Nomor WhatsApp admin — ganti dengan nomor admin yang sebenarnya
     const String nomorAdmin = '62895358812690';
 
-    // Pesan otomatis yang dikirim ke admin
     final String pesan = '''
 *PENGAJUAN PENDAFTARAN PRODUSEN*
 Aplikasi Rempang Eco City
@@ -183,14 +170,12 @@ Terima kasih.
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 
       if (!mounted) return;
-      // Tampilkan dialog konfirmasi setelah buka WA
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (_) => AlertDialog(
           backgroundColor: const Color(0xFFFDFDFD),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: const Text('Pendaftaran Diajukan!',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           content: const Text(
@@ -203,7 +188,7 @@ Terima kasih.
           actions: [
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(context); // tutup dialog
+                Navigator.pop(context);
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -213,8 +198,7 @@ Terima kasih.
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.successGreen,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               child: const Text('Mengerti'),
             ),
@@ -248,8 +232,6 @@ Terima kasih.
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 8),
-
-              // ── Pilih role daftar ──────────────────────────────────────
               const Text('Daftar Sebagai',
                   style: TextStyle(
                       fontSize: 22,
@@ -257,8 +239,7 @@ Terima kasih.
                       color: AppColors.textPrimary)),
               const SizedBox(height: 6),
               const Text('Pilih jenis akun yang ingin kamu daftarkan',
-                  style:
-                      TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
               const SizedBox(height: 16),
 
               Row(children: [
@@ -280,122 +261,92 @@ Terima kasih.
               ]),
               const SizedBox(height: 24),
 
-              // ── Info banner sesuai role ────────────────────────────────
               if (_roleDaftar == 'produsen')
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.successGreen.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: AppColors.successGreen.withOpacity(0.3)),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.info_outline,
-                        color: AppColors.successGreen, size: 20),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Pendaftaran produsen memerlukan verifikasi admin. '
-                        'Setelah mengajukan, admin akan menghubungi kamu via WhatsApp '
-                        'untuk memberikan akun login.',
-                        style: TextStyle(fontSize: 12, color: AppColors.successGreen, height: 1.4),
-                      ),
-                    ),
-                  ]),
+                _infoBanner(
+                  icon: Icons.info_outline,
+                  color: AppColors.successGreen,
+                  text: 'Pendaftaran produsen memerlukan verifikasi admin. '
+                      'Setelah mengajukan, admin akan menghubungi kamu via '
+                      'WhatsApp untuk memberikan akun login.',
                 ),
 
               if (_roleDaftar == 'mitra')
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.blue.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border:
-                        Border.all(color: AppColors.blue.withOpacity(0.3)),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.check_circle_outline,
-                        color: AppColors.blue, size: 20),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Akun Mitra Hilir langsung aktif setelah mendaftar. '
-                        'Kamu bisa langsung login dan memesan produk.',
-                        style: TextStyle(fontSize: 12, color: AppColors.blue, height: 1.4),
-                      ),
-                    ),
-                  ]),
+                _infoBanner(
+                  icon: Icons.check_circle_outline,
+                  color: AppColors.blue,
+                  text: 'Akun Mitra Hilir langsung aktif setelah mendaftar. '
+                      'Kamu bisa langsung login dan memesan produk.',
                 ),
 
               const SizedBox(height: 24),
 
-              // ── Form sesuai role ───────────────────────────────────────
+              // ── Form Mitra ──────────────────────────────────
               if (_roleDaftar == 'mitra') ...[
                 _buildLabel('Nama Lengkap *'),
                 const SizedBox(height: 6),
                 _buildTextField(_nameCtrl, 'Masukkan nama lengkap', Icons.person_outline),
                 const SizedBox(height: 14),
-
-                _buildLabel('Email *'),
+                _buildLabel('Username (Email) *'),
                 const SizedBox(height: 6),
                 _buildTextField(_emailCtrl, 'Masukkan email', Icons.email_outlined,
                     type: TextInputType.emailAddress),
                 const SizedBox(height: 14),
-
                 _buildLabel('Nomor Telepon'),
                 const SizedBox(height: 6),
                 _buildTextField(_phoneCtrl, 'Masukkan nomor telepon', Icons.phone_outlined,
                     type: TextInputType.phone),
                 const SizedBox(height: 14),
-
+                _buildLabel('Alamat *'),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _alamatCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    hintText: 'Masukkan alamat lengkap',
+                    hintStyle: TextStyle(color: AppColors.iconGrey, fontSize: 14),
+                    prefixIcon: Padding(
+                      padding: EdgeInsets.only(bottom: 24),
+                      child: Icon(Icons.location_on_outlined, color: AppColors.iconGrey),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
                 _buildLabel('Password *'),
                 const SizedBox(height: 6),
-                _buildPasswordField(_passCtrl, 'Minimal 6 karakter', _obscure,
-                    () => setState(() => _obscure = !_obscure)),
+                _buildPasswordField(_passCtrl, 'Minimal 6 karakter',
+                    _obscure, () => setState(() => _obscure = !_obscure)),
                 const SizedBox(height: 14),
-
                 _buildLabel('Konfirmasi Password *'),
                 const SizedBox(height: 6),
                 _buildPasswordField(_confirmPassCtrl, 'Ulangi password',
-                    _obscureConfirm,
-                    () => setState(() => _obscureConfirm = !_obscureConfirm)),
+                    _obscureConfirm, () => setState(() => _obscureConfirm = !_obscureConfirm)),
               ],
 
+              // ── Form Produsen ────────────────────────────────
               if (_roleDaftar == 'produsen') ...[
-                // Data pribadi
                 _sectionTitle('Data Pribadi'),
                 const SizedBox(height: 12),
-
                 _buildLabel('Nama Lengkap *'),
                 const SizedBox(height: 6),
                 _buildTextField(_nameCtrl, 'Masukkan nama lengkap', Icons.person_outline),
                 const SizedBox(height: 14),
-
                 _buildLabel('Nomor WhatsApp *'),
                 const SizedBox(height: 6),
                 _buildTextField(_phoneCtrl, 'Contoh: 08123456789', Icons.phone_outlined,
                     type: TextInputType.phone),
                 const SizedBox(height: 14),
-
                 _buildLabel('Email *'),
                 const SizedBox(height: 6),
                 _buildTextField(_emailCtrl, 'Masukkan email aktif', Icons.email_outlined,
                     type: TextInputType.emailAddress),
                 const SizedBox(height: 24),
-
-                // Data usaha
                 _sectionTitle('Data Usaha'),
                 const SizedBox(height: 12),
-
                 _buildLabel('Nama Usaha / KUB *'),
                 const SizedBox(height: 6),
                 _buildTextField(_namaUsahaCtrl, 'Contoh: KUB Nelayan Rempang',
                     Icons.business_outlined),
                 const SizedBox(height: 14),
-
                 _buildLabel('Jenis Usaha *'),
                 const SizedBox(height: 6),
                 Container(
@@ -409,83 +360,67 @@ Terima kasih.
                     child: DropdownButton<String>(
                       value: _jenisUsaha,
                       isExpanded: true,
-                      style: const TextStyle(
-                          fontSize: 14, color: AppColors.textPrimary),
+                      style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
                       items: _jenisUsahaList
-                          .map((j) =>
-                              DropdownMenuItem(value: j, child: Text(j)))
+                          .map((j) => DropdownMenuItem(value: j, child: Text(j)))
                           .toList(),
                       onChanged: (v) => setState(() => _jenisUsaha = v!),
                     ),
                   ),
                 ),
                 const SizedBox(height: 14),
-
                 _buildLabel('Alamat Usaha *'),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _alamatUsahaCtrl,
                   maxLines: 3,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: 'Masukkan alamat lengkap usaha',
-                    hintStyle: const TextStyle(
-                        color: AppColors.iconGrey, fontSize: 14),
-                    prefixIcon: const Padding(
+                    hintStyle: TextStyle(color: AppColors.iconGrey, fontSize: 14),
+                    prefixIcon: Padding(
                       padding: EdgeInsets.only(bottom: 40),
-                      child: Icon(Icons.location_on_outlined,
-                          color: AppColors.iconGrey),
+                      child: Icon(Icons.location_on_outlined, color: AppColors.iconGrey),
                     ),
                   ),
                 ),
                 const SizedBox(height: 14),
-
                 _buildLabel('Nomor NIB (opsional)'),
                 const SizedBox(height: 6),
-                _buildTextField(_nomorNIBCtrl,
-                    'Nomor Induk Berusaha (jika ada)', Icons.badge_outlined,
-                    type: TextInputType.number),
+                _buildTextField(_nomorNIBCtrl, 'Nomor Induk Berusaha (jika ada)',
+                    Icons.badge_outlined, type: TextInputType.number),
                 const SizedBox(height: 14),
-
                 _buildLabel('Deskripsi Usaha (opsional)'),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _deskripsiCtrl,
                   maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText:
-                        'Ceritakan tentang usaha kamu, jenis produk yang dijual, dll.',
-                    hintStyle: const TextStyle(
-                        color: AppColors.iconGrey, fontSize: 13),
-                    prefixIcon: const Padding(
+                  decoration: const InputDecoration(
+                    hintText: 'Ceritakan tentang usaha kamu, jenis produk yang dijual, dll.',
+                    hintStyle: TextStyle(color: AppColors.iconGrey, fontSize: 13),
+                    prefixIcon: Padding(
                       padding: EdgeInsets.only(bottom: 40),
-                      child: Icon(Icons.notes_outlined,
-                          color: AppColors.iconGrey),
+                      child: Icon(Icons.notes_outlined, color: AppColors.iconGrey),
                     ),
                   ),
                 ),
               ],
 
-              // ── Error ──────────────────────────────────────────────────
               if (_errorMsg != null) ...[
                 const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppColors.deleteRed.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: AppColors.deleteRed.withOpacity(0.3)),
+                    border: Border.all(color: AppColors.deleteRed.withOpacity(0.3)),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.error_outline,
-                        color: AppColors.deleteRed, size: 16),
+                    const Icon(Icons.error_outline, color: AppColors.deleteRed, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(_errorMsg!,
-                          style: const TextStyle(
-                              color: AppColors.deleteRed, fontSize: 13)),
+                          style: const TextStyle(color: AppColors.deleteRed, fontSize: 13)),
                     ),
                   ]),
                 ),
@@ -493,34 +428,36 @@ Terima kasih.
 
               const SizedBox(height: 28),
 
-              // ── Tombol aksi ────────────────────────────────────────────
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton.icon(
-                  onPressed: _roleDaftar == 'mitra'
-                      ? _registerMitra
-                      : _ajukanProdusen,
-                  icon: Icon(
-                    _roleDaftar == 'mitra'
-                        ? Icons.check_circle_outline
-                        : Icons.send_outlined,
-                    size: 18,
-                  ),
+                  onPressed: _isLoading
+                      ? null
+                      : (_roleDaftar == 'mitra' ? _registerMitra : _ajukanProdusen),
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : Icon(
+                          _roleDaftar == 'mitra'
+                              ? Icons.check_circle_outline
+                              : Icons.send_outlined,
+                          size: 18,
+                        ),
                   label: Text(
-                    _roleDaftar == 'mitra'
-                        ? 'Daftar Sekarang'
-                        : 'Ajukan Pendaftaran',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                    _isLoading
+                        ? 'Memproses...'
+                        : (_roleDaftar == 'mitra' ? 'Daftar Sekarang' : 'Ajukan Pendaftaran'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _roleDaftar == 'mitra'
                         ? AppColors.blue
                         : AppColors.successGreen,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -534,9 +471,7 @@ Terima kasih.
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: const Text('Masuk',
-                        style: TextStyle(
-                            color: AppColors.blue,
-                            fontWeight: FontWeight.w600)),
+                        style: TextStyle(color: AppColors.blue, fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -547,6 +482,28 @@ Terima kasih.
       ),
     );
   }
+
+  Widget _infoBanner({
+    required IconData icon,
+    required Color color,
+    required String text,
+  }) =>
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: 12, color: color, height: 1.4)),
+          ),
+        ]),
+      );
 
   Widget _sectionTitle(String title) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -564,9 +521,7 @@ Terima kasih.
   Widget _buildLabel(String text) => Text(
         text,
         style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            color: AppColors.textPrimary),
+            fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary),
       );
 
   Widget _buildTextField(
@@ -580,8 +535,7 @@ Terima kasih.
         keyboardType: type,
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle:
-              const TextStyle(color: AppColors.iconGrey, fontSize: 14),
+          hintStyle: const TextStyle(color: AppColors.iconGrey, fontSize: 14),
           prefixIcon: Icon(icon, color: AppColors.iconGrey),
         ),
       );
@@ -597,15 +551,11 @@ Terima kasih.
         obscureText: obscure,
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle:
-              const TextStyle(color: AppColors.iconGrey, fontSize: 14),
-          prefixIcon:
-              const Icon(Icons.lock_outline, color: AppColors.iconGrey),
+          hintStyle: const TextStyle(color: AppColors.iconGrey, fontSize: 14),
+          prefixIcon: const Icon(Icons.lock_outline, color: AppColors.iconGrey),
           suffixIcon: IconButton(
             icon: Icon(
-              obscure
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined,
+              obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
               color: AppColors.iconGrey,
             ),
             onPressed: toggle,
@@ -614,12 +564,12 @@ Terima kasih.
       );
 }
 
-// ── Role Card Widget ───────────────────────────────────────────────────────────
 class _RoleCard extends StatelessWidget {
   final IconData icon;
   final String label, desc;
   final bool selected;
   final VoidCallback onTap;
+
   const _RoleCard({
     required this.icon,
     required this.label,
@@ -637,9 +587,7 @@ class _RoleCard extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           decoration: BoxDecoration(
-            color: selected
-                ? AppColors.successGreen.withOpacity(0.08)
-                : Colors.white,
+            color: selected ? AppColors.successGreen.withOpacity(0.08) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: selected ? AppColors.successGreen : const Color(0xFFE0E0E0),
@@ -649,24 +597,18 @@ class _RoleCard extends StatelessWidget {
           child: Column(children: [
             Icon(icon,
                 size: 28,
-                color: selected
-                    ? AppColors.successGreen
-                    : AppColors.iconGrey),
+                color: selected ? AppColors.successGreen : AppColors.iconGrey),
             const SizedBox(height: 8),
             Text(label,
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: selected
-                        ? AppColors.successGreen
-                        : AppColors.textPrimary)),
+                    color: selected ? AppColors.successGreen : AppColors.textPrimary)),
             const SizedBox(height: 4),
             Text(desc,
                 style: TextStyle(
                     fontSize: 11,
-                    color: selected
-                        ? AppColors.successGreen
-                        : AppColors.textSecondary),
+                    color: selected ? AppColors.successGreen : AppColors.textSecondary),
                 textAlign: TextAlign.center),
           ]),
         ),

@@ -15,13 +15,13 @@ class DashboardMitra extends StatefulWidget {
 class _DashboardMitraState extends State<DashboardMitra> {
   int _navIndex = 0;
 
-  // HomeContent sekarang PUBLIC jadi bisa dipakai di sini
-  final List<Widget> _screens = const [
+  // Hapus 'const' di depan array [ agar HomeScreen bisa dieksekusi
+  final List<Widget> _screens = [
     HomeScreen(),
-    CartScreen(),
-    OrdersScreen(),
-    HistoryScreen(),
-    ProfileScreen(),
+    const CartScreen(),
+    const OrdersScreen(),
+    const HistoryScreen(),
+    const ProfileScreen(),
   ];
 
   @override

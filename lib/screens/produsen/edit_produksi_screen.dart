@@ -1,44 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:typed_data';
+import '../../models/produksi_model.dart';
 import '../../providers/produksi_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/shared_widget.dart';
 
-class InputProduksiScreen extends StatefulWidget {
-  const InputProduksiScreen({super.key});
+class EditProduksiScreen extends StatefulWidget {
+  final ProduksiModel item;
+  const EditProduksiScreen({super.key, required this.item});
+
   @override
-  State<InputProduksiScreen> createState() => _InputProduksiScreenState();
+  State<EditProduksiScreen> createState() => _EditProduksiScreenState();
 }
 
-class _InputProduksiScreenState extends State<InputProduksiScreen> {
-  final _formKey     = GlobalKey<FormState>();
-  String _kategori   = 'Ikan';
-  final _jenisCtrl   = TextEditingController();
-  final _tanggalCtrl = TextEditingController();
-  final _jumlahCtrl  = TextEditingController();
-  final _hargaCtrl   = TextEditingController();
-  final _lokasiCtrl  = TextEditingController();
-  final _catatanCtrl = TextEditingController();
+class _EditProduksiScreenState extends State<EditProduksiScreen> {
+  final _formKey = GlobalKey<FormState>();
 
-  Uint8List? _gambarBytes;
-  String?    _gambarNama;
+  late String _kategori;
+  late final TextEditingController _jenisCtrl;
+  late final TextEditingController _jumlahCtrl;
+  late final TextEditingController _hargaCtrl;
+  late final TextEditingController _lokasiCtrl;
+  late final TextEditingController _catatanCtrl;
 
   final _kategoriList = ['Ikan', 'Udang', 'Cumi'];
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _tanggalCtrl.text =
-        '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    // Pisah kategori dan jenis dari Nama_Produk (format: "Ikan - Kakap")
+    final parts = widget.item.jenisProduk.split(' - ');
+    _kategori  = parts.length >= 2 ? parts[0].trim() : 'Ikan';
+    final jenis = parts.length >= 2 ? parts.sublist(1).join(' - ').trim() : widget.item.jenisProduk;
+
+    _jenisCtrl  = TextEditingController(text: jenis);
+    _jumlahCtrl = TextEditingController(text: widget.item.jumlahKg.toStringAsFixed(0));
+    _hargaCtrl  = TextEditingController(text: widget.item.hargaPerKg.toStringAsFixed(0));
+    _lokasiCtrl = TextEditingController(text: widget.item.lokasiTangkap);
+    _catatanCtrl = TextEditingController(text: widget.item.catatan);
   }
 
   @override
   void dispose() {
     _jenisCtrl.dispose();
-    _tanggalCtrl.dispose();
     _jumlahCtrl.dispose();
     _hargaCtrl.dispose();
     _lokasiCtrl.dispose();
@@ -46,44 +51,29 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
     super.dispose();
   }
 
-  Future<void> _pilihGambar() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 80,
-    );
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    setState(() {
-      _gambarBytes = bytes;
-      _gambarNama  = picked.name;
-    });
-  }
-
   Future<void> _simpan() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
 
     final jumlah = double.tryParse(_jumlahCtrl.text.replaceAll(',', '.')) ?? 0;
     final harga  = double.tryParse(_hargaCtrl.text.replaceAll(',', '.')) ?? 0;
 
-    final result = await context.read<ProduksiProvider>().tambahProduksi(
+    final result = await context.read<ProduksiProvider>().editProduksi(
+      id:            widget.item.id,
       namaProduk:    '$_kategori - ${_jenisCtrl.text.trim()}',
       hargaPerKg:    harga,
       jumlahKg:      jumlah,
       lokasiTangkap: _lokasiCtrl.text.trim(),
       catatan:       _catatanCtrl.text.trim(),
-      gambarBytes:   _gambarBytes,
-      gambarNama:    _gambarNama,
     );
 
     if (!mounted) return;
+    setState(() => _isSaving = false);
 
     if (result['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Data produksi berhasil disimpan!'),
+          content: Text('Data produksi berhasil diperbarui!'),
           backgroundColor: Color(0xFF1D9E75),
           duration: Duration(seconds: 2),
         ),
@@ -92,7 +82,7 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['message'] ?? 'Gagal menyimpan data'),
+          content: Text(result['message'] ?? 'Gagal memperbarui data'),
           backgroundColor: Colors.red,
         ),
       );
@@ -111,7 +101,7 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Input Produksi',
+          'Edit Produksi',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -128,65 +118,6 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ── Gambar Produk ──────────────────────────────
-            fieldLabel('Foto Produk (opsional)'),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pilihGambar,
-              child: Container(
-                height: 160,
-                decoration: BoxDecoration(
-                  color: AppColors.bgCard,
-                  border: Border.all(
-                      color: AppColors.borderInput, width: 0.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: _gambarBytes != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.memory(
-                          _gambarBytes!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                        ),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.add_photo_alternate_outlined,
-                              size: 40, color: Color(0xFFAAAAAA)),
-                          SizedBox(height: 8),
-                          Text('Tap untuk pilih foto',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFFAAAAAA))),
-                        ],
-                      ),
-              ),
-            ),
-            if (_gambarBytes != null) ...[
-              const SizedBox(height: 6),
-              TextButton.icon(
-                onPressed: () =>
-                    setState(() { _gambarBytes = null; _gambarNama = null; }),
-                icon: const Icon(Icons.delete_outline,
-                    size: 14, color: Colors.red),
-                label: const Text('Hapus foto',
-                    style: TextStyle(fontSize: 12, color: Colors.red)),
-              ),
-            ],
-            const SizedBox(height: 14),
-
-            // ── Form Fields ────────────────────────────────
-            fieldLabel('Tanggal produksi'),
-            TextFormField(
-              controller: _tanggalCtrl,
-              style: const TextStyle(fontSize: 13),
-              decoration: fieldDeco('DD/MM/YYYY'),
-              validator: (v) =>
-                  (v == null || v.isEmpty) ? 'Wajib diisi' : null,
-            ),
-            const SizedBox(height: 14),
             fieldLabel('Kategori'),
             Container(
               decoration: BoxDecoration(
@@ -199,12 +130,10 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
                 child: DropdownButton<String>(
                   value: _kategori,
                   isExpanded: true,
-                  style: const TextStyle(
-                      fontSize: 13, color: AppColors.textPrimary),
+                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                   dropdownColor: AppColors.bgCard,
                   items: _kategoriList
-                      .map((k) =>
-                          DropdownMenuItem(value: k, child: Text(k)))
+                      .map((k) => DropdownMenuItem(value: k, child: Text(k)))
                       .toList(),
                   onChanged: (v) => setState(() {
                     _kategori = v!;
@@ -225,8 +154,7 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
                         ? 'Contoh: Vaname, Windu, Galah...'
                         : 'Contoh: Cumi Putih, Sotong...',
               ),
-              validator: (v) =>
-                  (v == null || v.isEmpty) ? 'Jenis wajib diisi' : null,
+              validator: (v) => (v == null || v.isEmpty) ? 'Jenis wajib diisi' : null,
             ),
             const SizedBox(height: 14),
             Row(children: [
@@ -278,8 +206,7 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
               controller: _lokasiCtrl,
               style: const TextStyle(fontSize: 13),
               decoration: fieldDeco('Masukkan lokasi tangkap'),
-              validator: (v) =>
-                  (v == null || v.isEmpty) ? 'Wajib diisi' : null,
+              validator: (v) => (v == null || v.isEmpty) ? 'Wajib diisi' : null,
             ),
             const SizedBox(height: 14),
             fieldLabel('Catatan (opsional)'),
@@ -293,37 +220,19 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _simpan,
-                icon: const Icon(Icons.save_outlined, size: 16),
-                label: const Text('Simpan Data Produksi'),
+                onPressed: _isSaving ? null : _simpan,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.save_outlined, size: 16),
+                label: Text(_isSaving ? 'Menyimpan...' : 'Simpan Perubahan'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  textStyle: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.list_alt_outlined,
-                    size: 16, color: AppColors.primary),
-                label: const Text('Lihat Daftar Produksi',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.primary),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
               ),
             ),
@@ -331,7 +240,6 @@ class _InputProduksiScreenState extends State<InputProduksiScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: buildProdusenNav(context, 2),
     );
   }
 }

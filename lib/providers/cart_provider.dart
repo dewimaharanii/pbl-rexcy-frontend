@@ -18,7 +18,11 @@ class CartProvider with ChangeNotifier {
     }
     notifyListeners();
   }
-
+void clearCart() {
+    _items.clear();
+    notifyListeners();
+  }
+  
   void increment(String productId) {
     final idx = _items.indexWhere((i) => i.product.id == productId);
     if (idx >= 0) { _items[idx].qty++; notifyListeners(); }

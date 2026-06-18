@@ -18,7 +18,8 @@ class _OrdersScreenState extends State<OrdersScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    // PERUBAHAN: Tab sekarang menjadi 4
+    _tabController = TabController(length: 4, vsync: this);
     _loadOrders();
   }
 
@@ -40,6 +41,7 @@ class _OrdersScreenState extends State<OrdersScreen>
     });
   }
 
+  // FILTER DATA
   List<dynamic> get _menunggu => _allOrders.where((o) {
         final s = (o['status'] ?? o['Status'] ?? '').toString().toLowerCase();
         return s == 'menunggu' || s == 'pending';
@@ -48,6 +50,12 @@ class _OrdersScreenState extends State<OrdersScreen>
   List<dynamic> get _diProses => _allOrders.where((o) {
         final s = (o['status'] ?? o['Status'] ?? '').toString().toLowerCase();
         return s == 'diproses' || s == 'proses';
+      }).toList();
+
+  // FILTER BARU: Selesai
+  List<dynamic> get _selesai => _allOrders.where((o) {
+        final s = (o['status'] ?? o['Status'] ?? '').toString().toLowerCase();
+        return s == 'selesai';
       }).toList();
 
   Color _statusColor(String status) {
@@ -106,10 +114,12 @@ class _OrdersScreenState extends State<OrdersScreen>
           unselectedLabelColor: AppColors.white.withOpacity(0.6),
           labelStyle: const TextStyle(
               fontWeight: FontWeight.w600, fontSize: 12, fontFamily: 'Poppins'),
+          // PERUBAHAN: Menambahkan Tab Selesai
           tabs: const [
             Tab(text: 'Semua'),
             Tab(text: 'Menunggu'),
             Tab(text: 'Di Proses'),
+            Tab(text: 'Selesai'),
           ],
         ),
       ),
@@ -121,6 +131,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                 _buildList(_allOrders),
                 _buildList(_menunggu),
                 _buildList(_diProses),
+                _buildList(_selesai), // Menampilkan Tab Selesai
               ],
             ),
     );
@@ -132,9 +143,9 @@ class _OrdersScreenState extends State<OrdersScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.receipt_long_outlined, size: 60, color: AppColors.iconGrey),
+            Icon(Icons.history, size: 60, color: AppColors.iconGrey),
             SizedBox(height: 12),
-            Text('Belum ada pesanan',
+            Text('Belum ada riwayat pesanan',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
           ],
         ),
@@ -149,13 +160,11 @@ class _OrdersScreenState extends State<OrdersScreen>
         itemBuilder: (_, i) {
           final order  = orders[i];
           
-          // PERBAIKAN: Membaca kunci data (keys) yang dikirim Laravel
           final idTrans = order['id_permintaan'] ?? order['Id_Permintaan'] ?? '-';
           final rawStatus = (order['status'] ?? order['Status'] ?? 'menunggu').toString().toLowerCase();
           final tgl = order['tanggal_permintaan'] ?? order['Tanggal_Permintaan'] ?? '-';
           final jumlah = order['jumlah_permintaan'] ?? order['Jumlah_Diminta'] ?? 0;
           
-          // Mengambil Total Harga
           int totalBiaya = 0;
           if (order['total_harga'] != null) {
             totalBiaya = int.tryParse(order['total_harga'].toString()) ?? 0;
@@ -163,7 +172,6 @@ class _OrdersScreenState extends State<OrdersScreen>
             totalBiaya = int.tryParse(order['estimasi_total'].toString()) ?? 0;
           }
 
-          // Mengambil Nama Produk
           final namaProduk = order['nama_produk'] ?? 
               (order['produk'] != null ? order['produk']['Nama_Produk'] : 'Produk Laut');
 
@@ -173,8 +181,7 @@ class _OrdersScreenState extends State<OrdersScreen>
             decoration: BoxDecoration(
               color: AppColors.bgCard,
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [BoxShadow(
-                  color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,6 +220,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                 _infoRow(Icons.calendar_today_outlined,
                     tgl.toString().length >= 10 ? tgl.toString().substring(0, 10) : '-'),
 
+                // Tombol ini tetap ada untuk mempermudah jika pengguna melihat tab "Di Proses" di sini
                 if (rawStatus == 'diproses') ...[
                   const SizedBox(height: 12),
                   SizedBox(
@@ -271,10 +279,7 @@ class _OrdersScreenState extends State<OrdersScreen>
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              
-              // Panggil API dengan ID transaksi yang benar
               final result = await MitraApiService.konfirmasiPesananSelesai(idTransaksi);
-              
               if (result['success'] == true) {
                 await _loadOrders();
                 if (mounted) {

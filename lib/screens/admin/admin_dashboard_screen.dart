@@ -296,7 +296,7 @@ class _DashboardHome extends StatelessWidget {
                   DataColumn(label: Text('Total')),
                   DataColumn(label: Text('Status')),
                 ],
-                rows: admin.transaksiList.map((t) {
+                rows: admin.transaksiTerbaru.map((t) {
                   return DataRow(cells: [
                     DataCell(Text(t.id)),
                     DataCell(Text(t.produsenNama)),

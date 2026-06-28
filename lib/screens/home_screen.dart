@@ -89,11 +89,19 @@ class _HomeContentState extends State<HomeContent> {
     }
   }
 
-  List<ProductModel> get _filtered {
+List<ProductModel> get _filtered {
     return _allProducts.where((p) {
+      // 1. Filter berdasarkan pencarian (teks)
       final matchSearch = _searchQuery.isEmpty ||
           p.name.toLowerCase().contains(_searchQuery.toLowerCase());
-      return matchSearch; 
+
+      // 2. Filter berdasarkan kategori yang dipilih
+      // Kita asumsikan kata "Ikan", "Udang", atau "Cumi" ada di dalam nama produknya
+      // (contoh: "Ikan - Kakap", "Udang - Tiger")
+      final matchCategory = p.name.toLowerCase().contains(_selectedCategory.toLowerCase());
+
+      // Tampilkan produk HANYA JIKA cocok dengan pencarian DAN kategorinya
+      return matchSearch && matchCategory;
     }).toList();
   }
 

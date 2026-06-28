@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:rempang_eco_city/providers/admin_provider.dart';
 import '../theme/app_theme.dart';
@@ -62,6 +63,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (adminResult['success'] == true) {
+        // 🔒 Admin hanya boleh login lewat Flutter Web, tidak boleh di HP
+        if (!kIsWeb) {
+          // Batalkan: hapus token admin yang baru saja didapat, jangan lanjut.
+          await MitraApiService.logoutAdmin();
+          setState(() => _errorMsg =
+              'Akun Admin hanya bisa login melalui Web, silakan gunakan browser di laptop/PC.');
+          return;
+        }
+
         final userData = adminResult['data'];
         context.read<UserProvider>().setUser(UserModel(
           name:     userData['Nama_Admin'] ?? userData['Username'] ?? '',

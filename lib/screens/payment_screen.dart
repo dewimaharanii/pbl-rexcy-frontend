@@ -7,7 +7,21 @@ import '../services/mitra_api_service.dart';
 import 'home_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
-  const PaymentScreen({Key? key}) : super(key: key);
+  // ── MODE PERMINTAAN (PMT) ──────────────────────────────────
+  // Jika permintaanId diisi, halaman ini berjalan dalam mode
+  // "bayar 1 permintaan" (bukan checkout keranjang).
+  final String? permintaanId;
+  final int? permintaanTotal;
+  final String? permintaanProdukNama;
+
+  const PaymentScreen({
+    Key? key,
+    this.permintaanId,
+    this.permintaanTotal,
+    this.permintaanProdukNama,
+  }) : super(key: key);
+
+  bool get isModePermintaan => permintaanId != null;
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -126,7 +140,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    
+
     if (image != null) {
       setState(() {
         _buktiTransfer = image;
@@ -139,21 +153,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _isLoadingPayment = true);
 
     try {
-      // Loop semua item di keranjang dan buat transaksinya di backend
-      for (var item in cart.items) {
-        await MitraApiService.buatTransaksi(
-          idProduksi: item.product.id,
-          jumlah: item.qty,
-          totalHarga: item.product.price * item.qty,
-          catatan: 'Kirim ke: $_namaLengkap, $_alamat ($_nomorTelepon)',
-        );
+      if (widget.isModePermintaan) {
+        // ── MODE PERMINTAAN: hanya 1 item, sudah ada datanya di Permintaan ──
+        final res = await MitraApiService.bayarPermintaan(widget.permintaanId!);
+        if (res['success'] != true) {
+          throw Exception(res['message'] ?? 'Gagal memproses pembayaran');
+        }
+      } else {
+        // ── MODE CART: buat transaksi untuk setiap item di keranjang ──
+        for (var item in cart.items) {
+          await MitraApiService.buatTransaksi(
+            idProduksi: item.product.id,
+            jumlah: item.qty,
+            totalHarga: item.product.price * item.qty,
+            catatan: 'Kirim ke: $_namaLengkap, $_alamat ($_nomorTelepon)',
+            imagePath: _buktiTransfer?.path, // 🚀 WAJIB DITAMBAHKAN AGAR FOTO TERKIRIM
+          );
+        }
+        if (mounted) context.read<CartProvider>().clearCart();
       }
 
-      // Jika berhasil, kosongkan keranjang
-      if (mounted) {
-        context.read<CartProvider>().clearCart();
-        _showSuccessDialog();
-      }
+      if (mounted) _showSuccessDialog();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -188,8 +208,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 child: const Icon(Icons.check_circle, color: Colors.green, size: 64),
               ),
               const SizedBox(height: 24),
-              const Text('Pembayaran berhasil',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                widget.isModePermintaan
+                    ? 'Pembayaran terkirim, menunggu verifikasi admin'
+                    : 'Pembayaran berhasil',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -223,6 +248,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
 
+    final int totalBelanja =
+        widget.isModePermintaan ? (widget.permintaanTotal ?? 0) : cart.totalPrice;
+
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       appBar: AppBar(
@@ -252,6 +280,46 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 offset: const Offset(0, -30),
                 child: Column(
                   children: [
+                    // --- INFO PERMINTAAN (hanya tampil di mode permintaan) ---
+                    if (widget.isModePermintaan)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.bgCard,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4))
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.send_outlined, color: Color(0xFF7C5CBF)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Permintaan #${widget.permintaanId}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    widget.permintaanProdukNama ?? 'Produk Laut',
+                                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
                     // --- CARD ALAMAT ---
                     Container(
                       width: double.infinity,
@@ -346,7 +414,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             ],
                           ),
                           const SizedBox(height: 24),
-                          
+
                           // Menampilkan nama file gambar asli
                           _buktiTransfer != null
                               ? Container(
@@ -361,8 +429,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                       const Icon(Icons.image, size: 16, color: AppColors.iconGrey),
                                       const SizedBox(width: 8),
                                       Expanded(
-                                        child: Text(_buktiTransfer!.name, 
-                                            maxLines: 1, 
+                                        child: Text(_buktiTransfer!.name,
+                                            maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                                       ),
@@ -395,7 +463,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
             ),
           ),
-          
+
           // --- BAGIAN BAWAH (TOTAL & BAYAR SEKARANG) ---
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -411,7 +479,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
             child: Column(
               children: [
-                Text('Total Belanja : ${_formatRp(cart.totalPrice)}',
+                Text('Total Belanja : ${_formatRp(totalBelanja)}',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -427,7 +495,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: _isLoadingPayment 
+                    child: _isLoadingPayment
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Text('BAYAR SEKARANG',
                         style: TextStyle(

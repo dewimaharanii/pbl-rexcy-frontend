@@ -138,7 +138,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    const String nomorAdmin = '62895358812690';
+    const String nomorAdmin = '6289503787668';
 
     final String pesan = '''
 *PENGAJUAN PENDAFTARAN PRODUSEN*

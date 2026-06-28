@@ -5,7 +5,7 @@ import '../../widgets/app_logo.dart';
 import '../../providers/user_provider.dart';
 import '../../services/mitra_api_service.dart';
 import 'produsen_produksi_screen.dart';
-import 'produsen_permintaan_screen.dart';
+import 'permintaan_masuk_screen.dart'; // Nama file tetap, tapi class kita ubah
 import 'produsen_transaksi_screen.dart';
 import 'produsen_profil_screen.dart';
 
@@ -22,7 +22,7 @@ class _ProdusenHomeScreenState extends State<ProdusenHomeScreen> {
   final List<Widget> _screens = const [
     ProdusenDashboardContent(),
     ProdusenProduksiScreen(),
-    ProdusenPermintaanScreen(),
+    PermintaanMasukScreen(), // Class yang akan kita ubah isinya
     ProdusenTransaksiScreen(),
     ProdusenProfilScreen(),
   ];
@@ -46,9 +46,10 @@ class _ProdusenHomeScreenState extends State<ProdusenHomeScreen> {
             label: 'Produksi',
           ),
           NavigationDestination(
+            // Ikon bisa diganti agar lebih mewakili Pesanan/List
             icon: Icon(Icons.list_alt_outlined),
             selectedIcon: Icon(Icons.list_alt),
-            label: 'Permintaan',
+            label: 'Pesanan', // <-- INI SUDAH DIUBAH MENJADI PESANAN
           ),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
@@ -150,7 +151,7 @@ class _ProdusenDashboardContentState
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Kelola produksi dan permintaan kamu',
+                  'Kelola produksi dan pesanan kamu',
                   style: TextStyle(
                       fontSize: 14, color: AppColors.textSecondary),
                 ),
@@ -170,7 +171,7 @@ class _ProdusenDashboardContentState
                     const SizedBox(width: 12),
                     _StatCard(
                       icon:  Icons.list_alt_outlined,
-                      label: 'Permintaan',
+                      label: 'Pesanan', // Diubah menjadi Pesanan
                       value: '$_totalPermintaan',
                       color: AppColors.statusWaiting,
                     ),
@@ -207,32 +208,28 @@ class _ProdusenDashboardContentState
                       label: 'Tambah Produksi',
                       color: AppColors.blue,
                       onTap: () {
-                        // Pindah ke tab Produksi
+                         // Aksi pindah tab bisa ditambahkan nanti
                       },
                     ),
                     _MenuCard(
                       icon:  Icons.pending_actions_outlined,
-                      label: 'Lihat Permintaan',
+                      label: 'Lihat Pesanan', // Diubah menjadi Pesanan
                       color: AppColors.statusWaiting,
                       onTap: () {
-                        // Pindah ke tab Permintaan
+                        // Aksi pindah tab bisa ditambahkan nanti
                       },
                     ),
                     _MenuCard(
                       icon:  Icons.local_shipping_outlined,
                       label: 'Transaksi',
                       color: AppColors.successGreen,
-                      onTap: () {
-                        // Pindah ke tab Transaksi
-                      },
+                      onTap: () {},
                     ),
                     _MenuCard(
                       icon:  Icons.person_outline,
                       label: 'Profil Saya',
                       color: AppColors.iconGrey,
-                      onTap: () {
-                        // Pindah ke tab Profil
-                      },
+                      onTap: () {},
                     ),
                   ],
                 ),

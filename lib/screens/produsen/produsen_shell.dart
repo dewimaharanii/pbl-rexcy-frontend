@@ -83,7 +83,7 @@ class _ProdusenNavBar extends StatelessWidget {
               _NavItem(icon: Icons.home_rounded,          label: 'Dashboard',  index: 0, currentIndex: currentIndex, onTap: onTap),
               _NavItem(icon: Icons.inventory_2_outlined,  label: 'Produksi',   index: 1, currentIndex: currentIndex, onTap: onTap),
               _NavItem(icon: Icons.layers_outlined,       label: 'Stok',       index: 2, currentIndex: currentIndex, onTap: onTap),
-              _NavItem(icon: Icons.inbox_outlined,        label: 'Permintaan', index: 3, currentIndex: currentIndex, onTap: onTap),
+              _NavItem(icon: Icons.inbox_outlined,        label: 'Pesanan',    index: 3, currentIndex: currentIndex, onTap: onTap),
               _NavItem(icon: Icons.history_outlined,      label: 'Riwayat',    index: 4, currentIndex: currentIndex, onTap: onTap),
               _NavItem(icon: Icons.person_outline_rounded,label: 'Profil',     index: 5, currentIndex: currentIndex, onTap: onTap),
             ],

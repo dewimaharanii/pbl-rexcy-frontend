@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart'; // Tambahan untuk ambil gambar
+import 'package:image_picker/image_picker.dart';
 import '../theme/app_theme.dart';
 import '../providers/cart_provider.dart';
 import '../services/mitra_api_service.dart';
 import 'home_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
-  // ── MODE PERMINTAAN (PMT) ──────────────────────────────────
-  // Jika permintaanId diisi, halaman ini berjalan dalam mode
-  // "bayar 1 permintaan" (bukan checkout keranjang).
   final String? permintaanId;
   final int? permintaanTotal;
   final String? permintaanProdukNama;
@@ -33,7 +30,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _alamat;
   String? _detailAlamat;
 
-  // State untuk unggah bukti menggunakan image_picker
   XFile? _buktiTransfer;
   bool _isLoadingPayment = false;
 
@@ -136,7 +132,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  // Fungsi untuk mengambil gambar dari Galeri Device
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -148,27 +143,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  // Fungsi Eksekusi Pembayaran ke Backend
   Future<void> _prosesPembayaran(CartProvider cart) async {
     setState(() => _isLoadingPayment = true);
 
     try {
       if (widget.isModePermintaan) {
-        // ── MODE PERMINTAAN: hanya 1 item, sudah ada datanya di Permintaan ──
-        final res = await MitraApiService.bayarPermintaan(widget.permintaanId!);
+        final imageBytes = _buktiTransfer != null ? await _buktiTransfer!.readAsBytes() : null;
+        final res = await MitraApiService.bayarPermintaan(
+          widget.permintaanId!,
+          imageBytes: imageBytes,
+          imageName: _buktiTransfer?.name,
+          namaPemesan: _namaLengkap ?? '',
+          noTelp: _nomorTelepon ?? '',
+          alamat: '$_alamat${_detailAlamat != null && _detailAlamat!.isNotEmpty ? ', $_detailAlamat' : ''}',
+        );
         if (res['success'] != true) {
           throw Exception(res['message'] ?? 'Gagal memproses pembayaran');
         }
       } else {
-        // ── MODE CART: buat transaksi untuk setiap item di keranjang ──
         for (var item in cart.items) {
-          await MitraApiService.buatTransaksi(
+          final imageBytes = _buktiTransfer != null ? await _buktiTransfer!.readAsBytes() : null;
+          final res = await MitraApiService.buatTransaksi(
             idProduksi: item.product.id,
             jumlah: item.qty,
             totalHarga: item.product.price * item.qty,
-            catatan: 'Kirim ke: $_namaLengkap, $_alamat ($_nomorTelepon)',
-            imagePath: _buktiTransfer?.path, // 🚀 WAJIB DITAMBAHKAN AGAR FOTO TERKIRIM
+            namaPemesan: _namaLengkap ?? '',
+            noTelp: _nomorTelepon ?? '',
+            alamat: '$_alamat${_detailAlamat != null && _detailAlamat!.isNotEmpty ? ', $_detailAlamat' : ''}',
+            catatan: 'Pesanan dari $_namaLengkap',
+            imageBytes: imageBytes,
+            imageName: _buktiTransfer?.name,
           );
+          if (res['success'] != true) {
+            throw Exception(res['message'] ?? 'Gagal membuat transaksi');
+          }
         }
         if (mounted) context.read<CartProvider>().clearCart();
       }
@@ -221,7 +229,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 height: 48,
                 child: ElevatedButton(
                   onPressed: () {
-                    // Pindah ke DashboardMitra (Akan mereset history)
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -280,7 +287,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 offset: const Offset(0, -30),
                 child: Column(
                   children: [
-                    // --- INFO PERMINTAAN (hanya tampil di mode permintaan) ---
                     if (widget.isModePermintaan)
                       Container(
                         width: double.infinity,
@@ -320,7 +326,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ),
                       ),
 
-                    // --- CARD ALAMAT ---
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -369,7 +374,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                     const SizedBox(height: 20),
 
-                    // --- CARD PEMBAYARAN BNI ---
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -415,7 +419,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           ),
                           const SizedBox(height: 24),
 
-                          // Menampilkan nama file gambar asli
                           _buktiTransfer != null
                               ? Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -464,7 +467,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           ),
 
-          // --- BAGIAN BAWAH (TOTAL & BAYAR SEKARANG) ---
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             decoration: BoxDecoration(

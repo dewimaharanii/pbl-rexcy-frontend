@@ -17,8 +17,8 @@ class _AdminPembayaranScreenState extends State<AdminPembayaranScreen> {
   String _errorMessage = ''; 
 
   // Sesuaikan dengan IP komputermu
-  final String baseUrl = 'http://192.168.110.224:8000/api'; 
-  final String storageUrl = 'http://192.168.110.224:8000/storage/';
+  final String baseUrl = 'http://localhost:8000/api'; 
+  final String storageUrl = 'http://localhost:8000/storage/';
 
   @override
   void initState() {
@@ -126,6 +126,17 @@ class _AdminPembayaranScreenState extends State<AdminPembayaranScreen> {
     return num.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
   }
 
+  String _formatTgl(dynamic val) {
+    final s = val?.toString() ?? '';
+    if (s.isEmpty) return '-';
+    try {
+      final dt = DateTime.parse(s);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (_) {
+      return s.length >= 10 ? s.substring(0, 10) : s;
+    }
+  }
+
   Widget _buildListContent(String filterJenis) {
     final filteredList = _listPembayaran.where((item) => item['jenis'].toString().toUpperCase() == filterJenis).toList();
 
@@ -186,6 +197,14 @@ class _AdminPembayaranScreenState extends State<AdminPembayaranScreen> {
                   Text('Produk: ${item['produk']}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                   const SizedBox(height: 4),
                   Text('Total Transfer: Rp ${_formatRp(item['total'])}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.successGreen)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.iconGrey),
+                      const SizedBox(width: 6),
+                      Text('Dibuat: ${_formatTgl(item['tanggal_pembuatan'] ?? item['tanggal'])}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   Row(
                     children: [

@@ -285,6 +285,22 @@ class _HistoryScreenState extends State<HistoryScreen>
           const SizedBox(height: 6),
           _row(Icons.calendar_today_outlined, tgl.length >= 10 ? tgl.substring(0, 10) : (tgl.isEmpty ? '-' : tgl)),
 
+          // Tombol Detail Pesanan
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showDetailPesanan(order),
+              icon: const Icon(Icons.info_outline, size: 14),
+              label: const Text('Detail Pesanan', style: TextStyle(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.blue,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                side: const BorderSide(color: AppColors.blue),
+              ),
+            ),
+          ),
+
           // Tombol "Bayar Sekarang" hanya muncul untuk Permintaan yang sudah Diterima produsen
           if (isPermintaan && rawStatus == 'diterima') ...[
             const SizedBox(height: 12),
@@ -340,6 +356,62 @@ class _HistoryScreenState extends State<HistoryScreen>
           ),
         ],
       );
+
+  void _showDetailPesanan(dynamic order) {
+    final namaPemesan = (order['nama_pemesan'] ?? '').toString();
+    final noTelp = (order['no_telp'] ?? '').toString();
+    final alamat = (order['alamat_pemesan'] ?? '').toString();
+    final mitraNama = (order['nama_mitra'] ?? order['mitra']?['Nama_Mitra'] ?? '-').toString();
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.person_outline, color: AppColors.blue),
+            SizedBox(width: 8),
+            Text('Detail Pesanan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _detailRow(Icons.person, 'Nama Pemesan', namaPemesan.isNotEmpty ? namaPemesan : mitraNama),
+            const Divider(height: 16),
+            _detailRow(Icons.phone, 'No. Telepon', noTelp.isNotEmpty ? noTelp : '-'),
+            const Divider(height: 16),
+            _detailRow(Icons.location_on, 'Alamat', alamat.isNotEmpty ? alamat : '-'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup', style: TextStyle(color: AppColors.blue)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: AppColors.iconGrey),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+            const SizedBox(height: 2),
+            Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ],
+    );
+  }
 
   void _goToPayment(dynamic order, String id) async {
     final produk = (order['nama_produk'] ??

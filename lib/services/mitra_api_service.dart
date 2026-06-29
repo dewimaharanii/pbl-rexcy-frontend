@@ -1,13 +1,14 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:typed_data';
 
 class MitraApiService {
   // FIX: Gunakan localhost agar tidak kena blokir CORS saat run di Chrome
-  static const String baseUrl      = 'http://192.168.110.224:8000/api/produsen';
-  static const String mitraBaseUrl = 'http://192.168.110.224:8000/api/mitra';
-  static const String adminBaseUrl = 'http://192.168.110.224:8000/api/admin';
+  static const String baseUrl      = 'http://localhost:8000/api/produsen';
+  static const String mitraBaseUrl = 'http://localhost:8000/api/mitra';
+  static const String adminBaseUrl = 'http://localhost:8000/api/admin';
 
   // ── TOKEN PRODUSEN ─────────────────────────────────────────
   static Future<void> saveToken(String token) async {
@@ -775,12 +776,15 @@ class MitraApiService {
     required int jumlah,
     int? totalHarga,
     String? catatan,
-    String? imagePath, // 🚀 TAMBAHKAN PARAMETER GAMBAR
+    Uint8List? imageBytes,
+    String? imageName,
+    String? namaPemesan,
+    String? noTelp,
+    String? alamat,
   }) async {
     try {
       final token = await getMitraToken() ?? '';
       
-      // Pakai MultipartRequest untuk mendukung pengiriman foto
       var request = http.MultipartRequest('POST', Uri.parse('$mitraBaseUrl/transaksi'));
       
       request.headers.addAll({
@@ -792,10 +796,16 @@ class MitraApiService {
       request.fields['jumlah']      = jumlah.toString();
       request.fields['total_harga'] = (totalHarga ?? 0).toString();
       request.fields['catatan']     = catatan ?? '';
+      request.fields['nama_pemesan'] = namaPemesan ?? '';
+      request.fields['no_telp']      = noTelp ?? '';
+      request.fields['alamat']       = alamat ?? '';
 
-      // Sisipkan foto ke server
-      if (imagePath != null && imagePath.isNotEmpty) {
-        request.files.add(await http.MultipartFile.fromPath('bukti_transfer', imagePath));
+      if (imageBytes != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'bukti_transfer',
+          imageBytes,
+          filename: imageName ?? 'bukti_transfer.jpg',
+        ));
       }
 
       var streamedResponse = await request.send();
@@ -841,12 +851,10 @@ class MitraApiService {
     }
   }
 
-  // 🚀 FIX: Fungsi Pembayaran sekarang mendukung pengiriman Foto Bukti Transfer!
-  static Future<Map<String, dynamic>> bayarPermintaan(String id, {String? imagePath}) async {
+  static Future<Map<String, dynamic>> bayarPermintaan(String id, {Uint8List? imageBytes, String? imageName, String? namaPemesan, String? noTelp, String? alamat, String? catatan}) async {
     try {
       final token = await getMitraToken() ?? '';
       
-      // Kita wajib menggunakan MultipartRequest agar bisa mengunggah file foto
       var request = http.MultipartRequest('POST', Uri.parse('$mitraBaseUrl/pembayaran/$id'));
       
       request.headers.addAll({
@@ -854,9 +862,17 @@ class MitraApiService {
         'Accept': 'application/json',
       });
 
-      // Menyisipkan file gambar (jika user memilih gambar)
-      if (imagePath != null && imagePath.isNotEmpty) {
-        request.files.add(await http.MultipartFile.fromPath('bukti_transfer', imagePath));
+      request.fields['nama_pemesan'] = namaPemesan ?? '';
+      request.fields['no_telp']      = noTelp ?? '';
+      request.fields['alamat']       = alamat ?? '';
+      request.fields['catatan']      = catatan ?? 'Pembayaran untuk permintaan';
+
+      if (imageBytes != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'bukti_transfer',
+          imageBytes,
+          filename: imageName ?? 'bukti_transfer.jpg',
+        ));
       }
 
       var streamedResponse = await request.send();
@@ -870,7 +886,7 @@ class MitraApiService {
     } catch (e) {
       return {'success': false, 'message': 'Gagal koneksi ke server: $e'};
     }
-  }  
+  }
 
   // ══════════════════════════════════════════════════════════
   //  PENCAIRAN DANA (PRODUSEN & ADMIN)

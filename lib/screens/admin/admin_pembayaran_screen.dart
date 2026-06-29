@@ -17,8 +17,8 @@ class _AdminPembayaranScreenState extends State<AdminPembayaranScreen> {
   String _errorMessage = ''; 
 
   // Sesuaikan dengan IP komputermu
-  final String baseUrl = 'http://192.168.1.14:8000/api'; 
-  final String storageUrl = 'http://192.168.1.14:8000/storage/';
+  final String baseUrl = 'http://192.168.110.224:8000/api'; 
+  final String storageUrl = 'http://192.168.110.224:8000/storage/';
 
   @override
   void initState() {

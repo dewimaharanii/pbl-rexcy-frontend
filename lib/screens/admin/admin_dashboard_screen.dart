@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rempang_eco_city/screens/admin/admin_pencairan_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/admin_provider.dart';
 import '../../theme/app_theme.dart';
@@ -10,6 +11,7 @@ import 'admin_data_transaksi_screen.dart';
 import 'admin_laporan_screen.dart';
 import 'admin_kelola_akun_screen.dart';
 import 'admin_pembayaran_screen.dart';
+import 'admin_pencairan_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -32,6 +34,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _NavItem(icon: Icons.bar_chart, label: 'Laporan'),
     _NavItem(icon: Icons.manage_accounts, label: 'Kelola Akun'),
     _NavItem(icon: Icons.payment, label: 'Pembayaran'),
+    _NavItem(icon: Icons.account_balance_wallet, label: 'Pencairan Dana'),
   ];
 
   Widget _buildBody() {
@@ -52,6 +55,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const AdminKelolaAkunScreen();
       case 7:
         return const AdminPembayaranScreen();
+      case 8:
+        return const AdminPencairanScreen();
       default:
         return const _DashboardHome();
     }

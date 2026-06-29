@@ -4,6 +4,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/shared_widget.dart';
 import '../../providers/user_provider.dart';
 import '../../services/mitra_api_service.dart';
+import 'pencairan_dana_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,6 +17,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _totalProduksi   = 0;
   int _totalPermintaan = 0;
   int _totalTransaksi  = 0;
+  int _saldoTersedia   = 0;
   bool _isLoading      = true;
 
   @override
@@ -30,17 +32,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final produksi   = await MitraApiService.getProdusenProduksi();
       final permintaan = await MitraApiService.getProdusenPermintaan();
       final transaksi  = await MitraApiService.getProdusenTransaksi();
+      final saldo      = await MitraApiService.getSaldoProdusen();
 
       if (!mounted) return;
       setState(() {
         _totalProduksi   = (produksi['data']   as List).length;
         _totalPermintaan = (permintaan['data'] as List).length;
         _totalTransaksi  = (transaksi['data']  as List).length;
+        _saldoTersedia   = saldo['success'] == true
+             ? (saldo['data']['saldo_tersedia'] ?? 0): 0;
         _isLoading       = false;
       });
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String _formatRp(int val) {
+    return val.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
   }
 
   @override
@@ -140,6 +149,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         color: AppColors.textSuccess,
                       ),
                     ]),
+                  ),
+                  const SizedBox(height: 16),
+                  const AppDivider(),
+                  const SizedBox(height: 12),
+                  const Text('Keuangan',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Saldo Tersedia',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        const SizedBox(height: 4),
+                        Text('Rp ${_formatRp(_saldoTersedia)}',
+                            style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PencairanDanaScreen(
+                            saldoTersedia: _saldoTersedia,
+                          ),
+                        ),
+                      ).then((_) => _loadData());
+                    },
+                    child: AppCard(
+                      child: Row(children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.account_balance_wallet_outlined,
+                              color: AppColors.primary, size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text('Ajukan Pencairan Dana',
+                              style: TextStyle(
+                                  fontSize: 13, color: AppColors.textPrimary)),
+                        ),
+                        const Icon(Icons.chevron_right,
+                            color: AppColors.iconGrey, size: 20),
+                      ]),
+                    ),
                   ),
                 ],
               ),

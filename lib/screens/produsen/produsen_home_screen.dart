@@ -4,10 +4,11 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_logo.dart';
 import '../../providers/user_provider.dart';
 import '../../services/mitra_api_service.dart';
-import 'produsen_produksi_screen.dart';
+import 'riwayat_transaksi_screen.dart';
+import 'daftar_produksi_screen.dart';
 import 'permintaan_masuk_screen.dart'; // Nama file tetap, tapi class kita ubah
-import 'produsen_transaksi_screen.dart';
-import 'produsen_profil_screen.dart';
+import '../profile_screen.dart';
+
 
 class ProdusenHomeScreen extends StatefulWidget {
   const ProdusenHomeScreen({Key? key}) : super(key: key);
@@ -21,10 +22,10 @@ class _ProdusenHomeScreenState extends State<ProdusenHomeScreen> {
 
   final List<Widget> _screens = const [
     ProdusenDashboardContent(),
-    ProdusenProduksiScreen(),
-    PermintaanMasukScreen(), // Class yang akan kita ubah isinya
-    ProdusenTransaksiScreen(),
-    ProdusenProfilScreen(),
+    DaftarProduksiScreen(),
+    PermintaanMasukScreen(),
+    RiwayatTransaksiScreen(),
+    ProfileScreen(),
   ];
 
   @override

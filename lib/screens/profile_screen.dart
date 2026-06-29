@@ -78,7 +78,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
-    await MitraApiService.logoutMitra();
+    final role = context.read<UserProvider>().user?.role ?? '';
+
+    if (role == 'produsen') {
+      await MitraApiService.logoutProdusen();
+    } else {
+      await MitraApiService.logoutMitra();
+    }
+
     if (!mounted) return;
     context.read<UserProvider>().logout();
     Navigator.pushAndRemoveUntil(

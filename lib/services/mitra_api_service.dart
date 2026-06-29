@@ -5,9 +5,9 @@ import 'dart:typed_data';
 
 class MitraApiService {
   // FIX: Gunakan localhost agar tidak kena blokir CORS saat run di Chrome
-  static const String baseUrl      = 'http://192.168.1.14:8000/api/produsen';
-  static const String mitraBaseUrl = 'http://192.168.1.14:8000/api/mitra';
-  static const String adminBaseUrl = 'http://192.168.1.14:8000/api/admin';
+  static const String baseUrl      = 'http://192.168.110.224:8000/api/produsen';
+  static const String mitraBaseUrl = 'http://192.168.110.224:8000/api/mitra';
+  static const String adminBaseUrl = 'http://192.168.110.224:8000/api/admin';
 
   // ── TOKEN PRODUSEN ─────────────────────────────────────────
   static Future<void> saveToken(String token) async {
@@ -871,4 +871,132 @@ class MitraApiService {
       return {'success': false, 'message': 'Gagal koneksi ke server: $e'};
     }
   }  
+
+  // ══════════════════════════════════════════════════════════
+  //  PENCAIRAN DANA (PRODUSEN & ADMIN)
+  // ══════════════════════════════════════════════════════════
+
+  // ── PRODUSEN ──
+  static Future<Map<String, dynamic>> ajukanPencairan({
+    required int jumlahDana,
+    required String namaBank,
+    required String noRekening,
+    required String namaPemilikRekening,
+  }) async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl/pencairan'),
+        headers: headers,
+        body: jsonEncode({
+          'jumlah_dana':           jumlahDana,
+          'nama_bank':             namaBank,
+          'no_rekening':           noRekening,
+          'nama_pemilik_rekening': namaPemilikRekening,
+        }),
+      );
+      final data = jsonDecode(response.body);
+      return {
+        'success': data['success'] ?? false,
+        'message': data['message'] ?? '',
+        'data':    data['data'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getRiwayatPencairan() async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/pencairan'),
+        headers: headers,
+      );
+      final data = jsonDecode(response.body);
+      return {
+        'success': data['success'] ?? false,
+        'data':    data['data'] ?? [],
+      };
+    } catch (e) {
+      return {'success': false, 'data': [], 'message': e.toString()};
+    }
+  }
+
+  // ── ADMIN ──
+  static Future<Map<String, dynamic>> adminGetPencairan() async {
+    try {
+      final headers = await _adminAuthHeaders();
+      final response = await http.get(
+        Uri.parse('$adminBaseUrl/pencairan'),
+        headers: headers,
+      );
+      final data = jsonDecode(response.body);
+      return {
+        'success': data['success'] ?? false,
+        'data':    data['data'] ?? [],
+      };
+    } catch (e) {
+      return {'success': false, 'data': [], 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> adminProsesPencairan(
+    String idPencairan,
+    String action, {
+    String? keterangan,
+  }) async {
+    try {
+      final headers = await _adminAuthHeaders();
+      final response = await http.post(
+        Uri.parse('$adminBaseUrl/pencairan/$idPencairan/proses'),
+        headers: headers,
+        body: jsonEncode({
+          'action':     action,
+          'keterangan': keterangan ?? '',
+        }),
+      );
+      final data = jsonDecode(response.body);
+      return {
+        'success': data['success'] ?? false,
+        'message': data['message'] ?? '',
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> adminSelesaikanPencairan(String idPencairan) async {
+    try {
+      final headers = await _adminAuthHeaders();
+      final response = await http.post(
+        Uri.parse('$adminBaseUrl/pencairan/$idPencairan/selesai'),
+        headers: headers,
+      );
+      final data = jsonDecode(response.body);
+      return {
+        'success': data['success'] ?? false,
+        'message': data['message'] ?? '',
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getSaldoProdusen() async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/saldo'),
+        headers: headers,
+      );
+      final data = jsonDecode(response.body);
+      return {
+        'success': data['success'] ?? false,
+        'data':    data['data'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 }

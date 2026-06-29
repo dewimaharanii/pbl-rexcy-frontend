@@ -33,6 +33,7 @@ class _HistoryScreenState extends State<HistoryScreen>
     'dikonfirmasi',
     'diproses',
     'proses',
+    'selesai',
   ];
 
   List<dynamic> get _pembelianAktif =>

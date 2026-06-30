@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:typed_data';
 import '../../models/produksi_model.dart';
 import '../../providers/produksi_provider.dart';
 import '../../theme/app_theme.dart';
@@ -22,6 +24,9 @@ class _EditProduksiScreenState extends State<EditProduksiScreen> {
   late final TextEditingController _hargaCtrl;
   late final TextEditingController _lokasiCtrl;
   late final TextEditingController _catatanCtrl;
+
+  Uint8List? _gambarBytes;
+  String?    _gambarNama;
 
   final _kategoriList = ['Ikan', 'Udang', 'Cumi'];
   bool _isSaving = false;
@@ -51,6 +56,22 @@ class _EditProduksiScreenState extends State<EditProduksiScreen> {
     super.dispose();
   }
 
+  Future<void> _pilihGambar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _gambarBytes = bytes;
+      _gambarNama  = picked.name;
+    });
+  }
+
   Future<void> _simpan() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
@@ -65,6 +86,8 @@ class _EditProduksiScreenState extends State<EditProduksiScreen> {
       jumlahKg:      jumlah,
       lokasiTangkap: _lokasiCtrl.text.trim(),
       catatan:       _catatanCtrl.text.trim(),
+      gambarBytes:   _gambarBytes,
+      gambarNama:    _gambarNama,
     );
 
     if (!mounted) return;
@@ -87,6 +110,18 @@ class _EditProduksiScreenState extends State<EditProduksiScreen> {
         ),
       );
     }
+  }
+
+  Widget _imagePlaceholder() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: const [
+        Icon(Icons.add_photo_alternate_outlined, size: 40, color: Color(0xFFAAAAAA)),
+        SizedBox(height: 8),
+        Text('Tap untuk ganti foto',
+            style: TextStyle(fontSize: 12, color: Color(0xFFAAAAAA))),
+      ],
+    );
   }
 
   @override
@@ -118,6 +153,45 @@ class _EditProduksiScreenState extends State<EditProduksiScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // ── Gambar Produk ──────────────────────────────
+            fieldLabel('Foto Produk (opsional)'),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: _pilihGambar,
+              child: Container(
+                height: 160,
+                decoration: BoxDecoration(
+                  color: AppColors.bgCard,
+                  border: Border.all(color: AppColors.borderInput, width: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: _gambarBytes != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(_gambarBytes!, fit: BoxFit.cover, width: double.infinity),
+                      )
+                    : widget.item.gambarUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              widget.item.gambarUrl!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              errorBuilder: (_, __, ___) => _imagePlaceholder(),
+                            ),
+                          )
+                        : _imagePlaceholder(),
+              ),
+            ),
+            if (_gambarBytes != null) ...[
+              const SizedBox(height: 6),
+              TextButton.icon(
+                onPressed: () => setState(() { _gambarBytes = null; _gambarNama = null; }),
+                icon: const Icon(Icons.delete_outline, size: 14, color: Colors.red),
+                label: const Text('Hapus foto', style: TextStyle(fontSize: 12, color: Colors.red)),
+              ),
+            ],
+            const SizedBox(height: 14),
             fieldLabel('Kategori'),
             Container(
               decoration: BoxDecoration(

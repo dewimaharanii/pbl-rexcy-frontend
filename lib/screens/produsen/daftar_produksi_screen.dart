@@ -212,11 +212,11 @@ class _ProduksiCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (item.gambar != null) ...[
+            if (item.gambarUrl != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
-                  'http://127.0.0.1:8000/storage/${item.gambar}',
+                  item.gambarUrl!,
                   width: 70,
                   height: 70,
                   fit: BoxFit.cover,

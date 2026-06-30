@@ -416,21 +416,35 @@ class MitraApiService {
     required int stok,
     String? lokasiTangkap,
     String? catatan,
+    Uint8List? gambarBytes,
+    String? gambarNama,
   }) async {
     try {
-      final headers = await _authHeaders();
-      final response = await http.put(
-        Uri.parse('$baseUrl/produk/$id'),
-        headers: headers,
-        body: jsonEncode({
-          'Nama_Produk':    namaProduk,
-          'Jumlah_Stok':    stok,
-          'Harga_Produksi': hargaProduksi,
-          'Lokasi_Tangkap': lokasiTangkap ?? '',
-          'Catatan':        catatan ?? '',
-        }),
-      );
+      final token = await getToken();
+      final uri = Uri.parse('$baseUrl/produk/$id');
+
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['Accept']        = 'application/json'
+        ..headers['Authorization'] = 'Bearer $token'
+        ..fields['_method']        = 'PUT'
+        ..fields['Nama_Produk']    = namaProduk
+        ..fields['Jumlah_Stok']    = stok.toString()
+        ..fields['Harga_Produksi'] = hargaProduksi.toString()
+        ..fields['Lokasi_Tangkap'] = lokasiTangkap ?? ''
+        ..fields['Catatan']        = catatan ?? '';
+
+      if (gambarBytes != null && gambarNama != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'Gambar',
+          gambarBytes,
+          filename: gambarNama,
+        ));
+      }
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
       final data = jsonDecode(response.body);
+
       return {
         'success': data['success'] ?? false,
         'message': data['message'] ?? '',
@@ -988,6 +1002,43 @@ class MitraApiService {
       final response = await http.post(
         Uri.parse('$adminBaseUrl/pencairan/$idPencairan/selesai'),
         headers: headers,
+      );
+      final data = jsonDecode(response.body);
+      return {
+        'success': data['success'] ?? false,
+        'message': data['message'] ?? '',
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> forgotPassword(String email, {bool isProdusen = false}) async {
+    try {
+      final url = isProdusen ? '$baseUrl/forgot-password' : '$mitraBaseUrl/forgot-password';
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Accept': 'application/json'},
+        body: {'email': email},
+      );
+      final data = jsonDecode(response.body);
+      return {
+        'success': data['success'] ?? false,
+        'message': data['message'] ?? '',
+        'token':   data['token'] ?? '',
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> resetPassword(String email, String token, String password, {bool isProdusen = false}) async {
+    try {
+      final url = isProdusen ? '$baseUrl/reset-password' : '$mitraBaseUrl/reset-password';
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Accept': 'application/json'},
+        body: {'email': email, 'token': token, 'password': password},
       );
       final data = jsonDecode(response.body);
       return {

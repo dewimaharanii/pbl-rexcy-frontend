@@ -8,6 +8,7 @@ class ProduksiModel {
   final String lokasiTangkap;
   final String catatan;
   final String? gambar;
+  final String? gambarUrl;
 
   ProduksiModel({
     required this.id,
@@ -19,6 +20,7 @@ class ProduksiModel {
     required this.lokasiTangkap,
     required this.catatan,
     this.gambar,
+    this.gambarUrl,
   });
 
   double get totalHarga => jumlahKg * hargaPerKg;
@@ -35,6 +37,7 @@ class ProduksiModel {
         lokasiTangkap: e['Lokasi_Tangkap'] ?? '',
         catatan:       e['Catatan']        ?? '',
         gambar:        e['Gambar'],
+        gambarUrl:     e['gambar_url'],
       );
 
   static String _extractKategori(String namaProduk) {

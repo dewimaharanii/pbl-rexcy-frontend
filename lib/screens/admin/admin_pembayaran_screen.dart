@@ -91,25 +91,27 @@ class _AdminPembayaranScreenState extends State<AdminPembayaranScreen> {
     }
   }
 
-  void _lihatBuktiDialog(String? imagePath) {
-    String fileName = imagePath?.split('/').last ?? '';
-    // Memanggil API Bypass CORS
-    String bypassCorsUrl = '$baseUrl/file/bukti-transfer/$fileName'; 
+  void _lihatBuktiDialog(String? imagePath, {String? buktiUrl}) {
+    String url = buktiUrl ?? '';
+    if (url.isEmpty && imagePath != null && imagePath.isNotEmpty) {
+      String fileName = imagePath.split('/').last;
+      url = '$baseUrl/file/bukti/$fileName';
+    }
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Bukti Pembayaran', style: TextStyle(fontSize: 16)),
-        content: imagePath != null && imagePath.isNotEmpty
+        content: url.isNotEmpty
             ? Image.network(
-                bypassCorsUrl, 
+                url,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) => Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.broken_image, color: Colors.red, size: 50),
                     const SizedBox(height: 8),
-                    Text('Gagal memuat: $bypassCorsUrl', style: const TextStyle(color: Colors.red, fontSize: 12)),
+                    Text('Gagal memuat: $url', style: const TextStyle(color: Colors.red, fontSize: 12)),
                   ],
                 ),
               )
@@ -209,7 +211,7 @@ class _AdminPembayaranScreenState extends State<AdminPembayaranScreen> {
                   Row(
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () => _lihatBuktiDialog(item['bukti']),
+                        onPressed: () => _lihatBuktiDialog(item['bukti'], buktiUrl: item['bukti_url']),
                         icon: const Icon(Icons.receipt_long, size: 16),
                         label: const Text('Lihat Bukti'),
                         style: OutlinedButton.styleFrom(foregroundColor: AppColors.blue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),

@@ -67,6 +67,8 @@ class ProduksiProvider extends ChangeNotifier {
     required double jumlahKg,
     required String lokasiTangkap,
     String? catatan,
+    Uint8List? gambarBytes,
+    String? gambarNama,
   }) async {
     try {
       final result = await MitraApiService.updateProduksi(
@@ -76,6 +78,8 @@ class ProduksiProvider extends ChangeNotifier {
         stok:          jumlahKg.toInt(),
         lokasiTangkap: lokasiTangkap,
         catatan:       catatan,
+        gambarBytes:   gambarBytes,
+        gambarNama:    gambarNama,
       );
       print('== EDIT RESULT: $result');
       print('== Id yang dikirim: $id');
